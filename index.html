@@ -51,7 +51,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s, filter 0.2s;
             user-select: none;
             z-index: 10;
         }
@@ -60,6 +60,8 @@
             flex-direction: column;
             align-items: center;
             gap: 8px;
+            position: relative;
+            z-index: 1;
         }
         .node-image-container {
             position: relative;
@@ -113,39 +115,49 @@
             justify-content: center;
         }
         
-        .node.shape-drop {
+        .node.shape-star {
             border: none;
             background-color: transparent;
-            padding: 0;
+            box-shadow: none;
+            padding: 25px;
+            min-width: 120px;
+            min-height: 120px;
+            aspect-ratio: 1 / 1;
+        }
+        .node.shape-star::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--node-dynamic-bg);
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        }
+        .node.shape-star .node-content {
+            max-width: 60%;
+        }
+
+        .node.shape-sun {
+            border-radius: 50%;
+            padding: 25px;
+            aspect-ratio: 1 / 1;
             min-width: 100px;
             min-height: 100px;
         }
-        .node.shape-drop .node-content-wrapper {
-             width: 100px;
-             height: 100px;
-             display: flex;
-             align-items: center;
-             justify-content: center;
-             border-radius: 50% 50% 50% 0;
-             border: 2px solid var(--node-border);
-             transform: rotate(-45deg);
-             background-color: var(--node-dynamic-bg);
-        }
-        .node.selected .node-content-wrapper {
-             border-color: var(--node-selected-border);
-        }
-        .node.shape-drop .node-content {
-            max-width: 80%;
-        }
 
         .node:hover {
-             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+             filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15));
         }
         .node.selected {
             border-color: var(--node-selected-border);
             box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
             z-index: 20;
+            filter: none;
         }
+        .node.shape-star.selected {
+             border-color: transparent;
+             box-shadow: none;
+             filter: drop-shadow(0 0 4px rgba(66, 153, 225, 0.7)) drop-shadow(0 0 4px rgba(66, 153, 225, 0.7));
+        }
+
         .node.link-start {
             border-color: var(--link-color);
             animation: pulse 1.5s infinite;
@@ -234,9 +246,15 @@
              <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="rect" title="Rektangel"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg></button>
              <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="ellipse" title="Ellips"><svg width="20" height="20" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="7" fill="currentColor"/></svg></button>
              <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="square" title="Kvadrat"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg></button>
-             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="drop" title="Vattendroppe"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-4.418 0-8 3.582-8 8 0 4.418 8 16 8 16s8-11.582 8-16c0-4.418-3.582-8-8-8z"/></svg></button>
+             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="star" title="Stjärna">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+             </button>
+             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="sun" title="Sol">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18a6 6 0 100-12 6 6 0 000 12zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zM1 11h3v2H1v-2zm19 0h3v2h-3v-2zM4.929 16.95l2.121-2.121 1.414 1.414-2.121 2.121-1.414-1.414zM18.364 5.636l2.121-2.121 1.414 1.414-2.121 2.121-1.414-1.414z"/></svg>
+             </button>
         </div>
         <input type="color" id="color-picker" value="#ffffff" class="w-10 h-10 p-1 bg-white border border-gray-300 rounded-lg cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" title="Ändra nodfärg">
+        <input type="color" id="bg-color-picker" value="#f0f4f8" class="w-10 h-10 p-1 bg-white border border-gray-300 rounded-lg cursor-pointer" title="Ändra bakgrundsfärg">
         <button id="add-image-btn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold p-2 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center h-10 w-10" title="Ladda upp bild">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         </button>
@@ -255,7 +273,10 @@
     </div>
     
     <!-- Text Editor -->
-    <div id="text-editor" class="fixed z-50 bg-white rounded-lg shadow-xl p-2 flex space-x-1 border border-gray-300 hidden">
+    <div id="text-editor" class="fixed z-50 bg-white rounded-lg shadow-xl p-2 flex items-center space-x-1 border border-gray-300 hidden">
+        <button class="editor-btn" data-command="selectAll" title="Markera allt">
+             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v2M5 9v2M5 15v2M5 21v-2M9 3h2M13 3h2M17 3h2M21 3v2M21 7v2M21 13v2M21 17v2M9 21h2M13 21h2M17 21h2"/></svg>
+        </button>
         <button class="editor-btn" data-command="bold" title="Fet"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg></button>
         <button class="editor-btn" data-command="italic" title="Kursiv"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></svg></button>
         <button class="editor-btn" data-command="createLink" title="Infoga länk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg></button>
@@ -272,6 +293,7 @@
             const deleteNodeBtn = document.getElementById('delete-node-btn');
             const clearAllBtn = document.getElementById('clear-all-btn');
             const colorPicker = document.getElementById('color-picker');
+            const bgColorPicker = document.getElementById('bg-color-picker');
             const exportBtn = document.getElementById('export-btn');
             const addImageBtn = document.getElementById('add-image-btn');
             const linkNodesBtn = document.getElementById('link-nodes-btn');
@@ -300,15 +322,20 @@
             let historyStack = [];
             let historyIndex = -1;
             let mindmapName = '';
+            let currentBgColor = '#f0f4f8';
 
-            function getContrastColor(hex) {
-                if (!hex) return '#2d3748';
+            function getContrastColor(hex, forLines = false) {
+                if (!hex) return forLines ? '#718096' : '#2d3748';
                 const hexValue = hex.startsWith('#') ? hex.substring(1) : hex;
-                if (hexValue.length !== 6) return '#2d3748';
+                if (hexValue.length !== 6) return forLines ? '#718096' : '#2d3748';
                 const r = parseInt(hexValue.substr(0, 2), 16);
                 const g = parseInt(hexValue.substr(2, 2), 16);
                 const b = parseInt(hexValue.substr(4, 2), 16);
                 const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                
+                if (forLines) {
+                     return (yiq >= 128) ? '#718096' : '#ffffff';
+                }
                 return (yiq >= 128) ? '#2d3748' : '#ffffff';
             }
 
@@ -324,19 +351,10 @@
                 nodeEl.appendChild(rotationHandle);
                 
                 let mainContentWrapper, textContentEl;
-
-                if (shape === 'drop') {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'node-content-wrapper';
-                    mainContentWrapper = document.createElement('div');
-                    mainContentWrapper.className = 'node-content';
-                    wrapper.appendChild(mainContentWrapper);
-                    nodeEl.appendChild(wrapper);
-                } else {
-                    mainContentWrapper = document.createElement('div');
-                    mainContentWrapper.className = 'node-content';
-                    nodeEl.appendChild(mainContentWrapper);
-                }
+                
+                mainContentWrapper = document.createElement('div');
+                mainContentWrapper.className = 'node-content';
+                nodeEl.appendChild(mainContentWrapper);
 
                 textContentEl = document.createElement('div');
                 textContentEl.className = 'node-text-content';
@@ -416,25 +434,20 @@
                 if (!startEl || !endEl) return;
                 const lineId = `${startId}-${endId}`;
                 if (lines[lineId]) lines[lineId].remove();
-                const line = new LeaderLine(startEl, endEl, { color: '#718096', size: 2, path: 'fluid', endPlug: 'behind' });
+                const lineColor = getContrastColor(currentBgColor, true);
+                const line = new LeaderLine(startEl, endEl, { color: lineColor, size: 2, path: 'fluid', endPlug: 'behind' });
                 lines[lineId] = line;
             }
 
             function applyNodeStyle(node) {
                 node.el.style.setProperty('--node-dynamic-bg', node.bgColor);
                 node.textContentEl.style.color = node.textColor;
-                node.el.classList.remove('shape-rect', 'shape-ellipse', 'shape-square', 'shape-drop');
+                node.el.classList.remove('shape-rect', 'shape-ellipse', 'shape-square', 'shape-star', 'shape-sun');
                 node.el.classList.add(`shape-${node.shape}`);
 
                 const rotation = node.rotation || 0;
                 node.el.style.transform = `rotate(${rotation}deg)`;
-
-                if (node.shape === 'drop') {
-                    // Correct rotation for drop shape
-                    node.contentEl.style.transform = `rotate(${45 - rotation}deg)`;
-                } else {
-                    node.contentEl.style.transform = `rotate(-${rotation}deg)`;
-                }
+                node.contentEl.style.transform = `rotate(-${rotation}deg)`;
                 
                 Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
             }
@@ -571,11 +584,7 @@
                 textEditor.classList.remove('hidden'); 
                 positionEditor(nodes[id].el);
                 contentEl.focus();
-                const selection = window.getSelection();
-                const range = document.createRange();
-                range.selectNodeContents(contentEl);
-                selection.removeAllRanges();
-                selection.addRange(range);
+                
                 const currentColor = window.getComputedStyle(contentEl).color;
                 textColorPicker.value = rgbToHex(currentColor);
             }
@@ -641,6 +650,7 @@
                 if (confirm('Är du säker på att du vill rensa hela tankekartan? Detta kan inte ångras.')) {
                     localStorage.removeItem('mindmapState');
                     localStorage.removeItem('mindmapName');
+                    localStorage.removeItem('mindmapBgColor');
                     historyStack = [];
                     historyIndex = -1;
                     location.reload();
@@ -664,6 +674,11 @@
                 applyNodeStyle(node);
             });
             colorPicker.addEventListener('change', saveState);
+
+            bgColorPicker.addEventListener('input', (e) => {
+                updateBackgroundColor(e.target.value);
+            });
+
             addImageBtn.addEventListener('click', () => { if (selectedNodeId) { imageUploadInput.click(); } });
             linkNodesBtn.addEventListener('click', toggleLinkingMode);
             imageUploadInput.addEventListener('change', (event) => {
@@ -686,38 +701,7 @@
                     const node = nodes[selectedNodeId];
                     const newShape = btn.dataset.shape;
                     if (node.shape === newShape) return;
-
                     node.shape = newShape;
-
-                    const rotationHandle = node.el.querySelector('.rotation-handle');
-                    const currentContentHTML = node.contentEl.innerHTML;
-                    
-                    node.el.innerHTML = ''; // Rensa
-                    if (rotationHandle) node.el.appendChild(rotationHandle);
-
-                    let mainContentWrapper;
-                     if (newShape === 'drop') {
-                        const wrapper = document.createElement('div');
-                        wrapper.className = 'node-content-wrapper';
-                        mainContentWrapper = document.createElement('div');
-                        mainContentWrapper.className = 'node-content';
-                        wrapper.appendChild(mainContentWrapper);
-                        node.el.appendChild(wrapper);
-                    } else {
-                        mainContentWrapper = document.createElement('div');
-                        mainContentWrapper.className = 'node-content';
-                        node.el.appendChild(mainContentWrapper);
-                    }
-                    mainContentWrapper.innerHTML = currentContentHTML;
-                    
-                    node.contentEl = mainContentWrapper;
-                    node.textContentEl = mainContentWrapper.querySelector('.node-text-content');
-                    
-                    node.textContentEl.addEventListener('dblclick', (ev) => {
-                        ev.stopPropagation();
-                        showTextEditor(node.textContentEl, node.id);
-                    });
-
                     applyNodeStyle(node);
                     saveState();
                 });
@@ -730,7 +714,44 @@
                 selectNode(newId);
                 saveState();
             });
-            textEditor.addEventListener('click', e => e.stopPropagation());
+            
+            document.querySelectorAll('.editor-btn').forEach(btn => {
+                btn.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    let command = btn.dataset.command;
+                    
+                    if (command === 'createLink') {
+                        const selection = window.getSelection();
+                        if (selection.toString().length === 0) {
+                            alert('Markera först texten du vill göra till en länk.');
+                            return;
+                        }
+                        const savedRange = selection.getRangeAt(0).cloneRange();
+                        const url = prompt('Ange URL:', 'https://');
+                        if (url) {
+                            selection.removeAllRanges();
+                            selection.addRange(savedRange);
+                            document.execCommand('createLink', false, url);
+                        }
+                    } else if (command === 'selectAll') {
+                         if (editorTarget) {
+                            const selection = window.getSelection();
+                            const range = document.createRange();
+                            range.selectNodeContents(editorTarget);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    } else {
+                        document.execCommand(command, false, null);
+                    }
+                });
+            });
+
+            textColorPicker.addEventListener('mousedown', (e) => e.preventDefault());
+            textColorPicker.addEventListener('input', e => {
+                 document.execCommand('foreColor', false, e.target.value);
+            });
+
             saveEditorBtn.addEventListener('click', hideTextEditor);
 
             async function exportAsImage() {
@@ -738,7 +759,7 @@
                 selectNode(null); 
                 await new Promise(resolve => setTimeout(resolve, 100));
                 try {
-                    const canvas = await html2canvas(container, { backgroundColor: '#f0f4f8', logging: false, useCORS: true, onclone: (clonedDoc) => { /* ... */ } });
+                    const canvas = await html2canvas(container, { backgroundColor: currentBgColor, logging: false, useCORS: true, onclone: (clonedDoc) => { /* ... */ } });
                     const link = document.createElement('a');
                     link.href = canvas.toDataURL('image/jpeg');
                     const safeName = mindmapName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
@@ -801,6 +822,7 @@
             undoBtn.addEventListener('click', undo);
             redoBtn.addEventListener('click', redo);
             document.addEventListener('keydown', (e) => {
+                if (document.activeElement.contentEditable === 'true') return;
                 if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
                 if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
             });
@@ -862,8 +884,23 @@
                 });
             }
 
+            function updateBackgroundColor(color) {
+                currentBgColor = color;
+                container.style.backgroundColor = color;
+                const lineColor = getContrastColor(color, true);
+                Object.values(lines).forEach(line => line.setOptions({ color: lineColor }));
+                localStorage.setItem('mindmapBgColor', color);
+            }
+
             function handleStartup() {
                 mindmapName = localStorage.getItem('mindmapName');
+                const savedBgColor = localStorage.getItem('mindmapBgColor');
+
+                if (savedBgColor) {
+                    updateBackgroundColor(savedBgColor);
+                    bgColorPicker.value = savedBgColor;
+                }
+
                 if (!mindmapName) {
                     nameModal.classList.remove('hidden');
                     nameInput.focus();
