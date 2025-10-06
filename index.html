@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tankekarta Program</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plain-draggable@2.5.14/plain-draggable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leader-line-new@1.1.9/leader-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --node-bg: #ffffff;
+            --node-shadow: #dbe1e8;
+            --node-border: #a0aec0;
+            --node-selected-border: #4299e1;
+            --text-color: #2d3748;
+            --line-color: #718096;
+            --link-color: #38B2AC;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overscroll-behavior: none;
+        }
+        body.linking-mode {
+            cursor: crosshair;
+        }
+        #mindmap-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-image:
+                linear-gradient(rgba(160, 174, 192, 0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(160, 174, 192, 0.2) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .node {
+            position: absolute;
+            border: 2px solid var(--node-border);
+            padding: 12px 16px;
+            cursor: grab;
+            background-color: var(--node-dynamic-bg, var(--node-bg));
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            min-width: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            user-select: none;
+            z-index: 10;
+        }
+        .node-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .node-image-container {
+            position: relative;
+            max-width: 100px;
+        }
+        .node-image-container:hover .remove-image-btn {
+            opacity: 1;
+        }
+        .node-image {
+            max-width: 100%;
+            max-height: 80px;
+            border-radius: 4px;
+            display: block;
+        }
+        .remove-image-btn {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+            border: 1px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-size: 12px;
+            line-height: 1;
+        }
+        .node.shape-rect { border-radius: 8px; }
+        .node.shape-ellipse { border-radius: 50%; }
+        
+        .node.shape-square {
+            border-radius: 0;
+            padding: 0;
+            min-width: 100px;
+            min-height: 100px;
+            aspect-ratio: 1 / 1;
+            width: auto;
+            height: auto;
+        }
+        .node.shape-square .node-content-wrapper {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .node.shape-drop {
+            border: none;
+            background-color: transparent;
+            padding: 0;
+            min-width: 100px;
+            min-height: 100px;
+        }
+        .node.shape-drop .node-content-wrapper {
+             width: 100px;
+             height: 100px;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             border-radius: 50% 50% 50% 0;
+             border: 2px solid var(--node-border);
+             transform: rotate(-45deg);
+             background-color: var(--node-dynamic-bg);
+        }
+        .node.selected .node-content-wrapper {
+             border-color: var(--node-selected-border);
+        }
+        .node.shape-drop .node-content {
+            max-width: 80%;
+        }
+
+        .node:hover {
+             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .node.selected {
+            border-color: var(--node-selected-border);
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+            z-index: 20;
+        }
+        .node.link-start {
+            border-color: var(--link-color);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(56, 178, 172, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(56, 178, 172, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(56, 178, 172, 0); }
+        }
+        .node-text-content {
+            outline: none;
+            word-break: break-word;
+        }
+        .node-text-content a {
+            color: #3182ce;
+            text-decoration: underline;
+        }
+        .leader-line { z-index: 5; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+        
+        #controls {
+            cursor: grab;
+        }
+        .shape-btn.active, #link-nodes-btn.active {
+            background-color: #4299e1;
+        }
+        .editor-btn {
+            padding: 0.25rem;
+            border-radius: 0.25rem;
+        }
+        .editor-btn:hover {
+            background-color: #e2e8f0;
+        }
+        .rotation-handle {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: var(--node-selected-border);
+            border: 2px solid white;
+            border-radius: 50%;
+            top: -30px;
+            left: 50%;
+            margin-left: -10px;
+            cursor: alias;
+            z-index: 25;
+            display: none;
+        }
+        .node.selected .rotation-handle {
+            display: block;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen m-0 p-0 overflow-hidden">
+
+    <div id="mindmap-container" class="w-full h-full"></div>
+
+    <!-- Kontrollpanel -->
+    <div id="controls" class="fixed top-4 left-4 z-30 bg-white/80 backdrop-blur-sm p-2 rounded-xl shadow-lg flex items-center space-x-2 border border-gray-200">
+        <div class="flex items-center bg-gray-100 rounded-lg p-1">
+            <button id="undo-btn" class="p-2 rounded-md disabled:opacity-50" title="Ångra (Ctrl+Z)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"></path><path d="M4 10l5-5 5 5"></path><path d="M9 3v12"></path></svg>
+            </button>
+            <button id="redo-btn" class="p-2 rounded-md disabled:opacity-50" title="Gör om (Ctrl+Y)">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="scale(-1, 1)"><path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"></path><path d="M4 10l5-5 5 5"></path><path d="M9 3v12"></path></svg>
+            </button>
+        </div>
+        <button id="add-child-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2" title="Lägg till barn-nod">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        </button>
+        <div class="flex items-center bg-gray-100 rounded-lg p-1">
+             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="rect" title="Rektangel"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg></button>
+             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="ellipse" title="Ellips"><svg width="20" height="20" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="7" fill="currentColor"/></svg></button>
+             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="square" title="Kvadrat"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg></button>
+             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="drop" title="Vattendroppe"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-4.418 0-8 3.582-8 8 0 4.418 8 16 8 16s8-11.582 8-16c0-4.418-3.582-8-8-8z"/></svg></button>
+        </div>
+        <input type="color" id="color-picker" value="#ffffff" class="w-10 h-10 p-1 bg-white border border-gray-300 rounded-lg cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" title="Ändra nodfärg">
+        <button id="add-image-btn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold p-2 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center h-10 w-10" title="Ladda upp bild">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        </button>
+        <button id="link-nodes-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold p-2 rounded-lg transition-colors h-10 w-10 flex items-center justify-center" title="Koppla ihop noder manuellt">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>
+        </button>
+        <button id="delete-node-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2" title="Ta bort nod">
+             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+        <button id="export-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2" title="Ladda ner som bild">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button id="clear-all-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2" title="Rensa allt">
+             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        </button>
+    </div>
+    
+    <!-- Text Editor -->
+    <div id="text-editor" class="fixed z-50 bg-white rounded-lg shadow-xl p-2 flex space-x-1 border border-gray-300 hidden">
+        <button class="editor-btn" data-command="bold" title="Fet"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg></button>
+        <button class="editor-btn" data-command="italic" title="Kursiv"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></svg></button>
+        <button class="editor-btn" data-command="createLink" title="Infoga länk"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg></button>
+        <input type="color" id="text-color-picker" class="w-7 h-7 p-0.5 border-none rounded-md cursor-pointer" title="Textfärg">
+        <button id="save-editor-btn" class="bg-green-500 text-white rounded p-1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+    </div>
+
+    <input type="file" id="image-upload-input" class="hidden" accept="image/*">
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('mindmap-container');
+            const addChildBtn = document.getElementById('add-child-btn');
+            const deleteNodeBtn = document.getElementById('delete-node-btn');
+            const clearAllBtn = document.getElementById('clear-all-btn');
+            const colorPicker = document.getElementById('color-picker');
+            const exportBtn = document.getElementById('export-btn');
+            const addImageBtn = document.getElementById('add-image-btn');
+            const linkNodesBtn = document.getElementById('link-nodes-btn');
+            const imageUploadInput = document.getElementById('image-upload-input');
+            const shapeButtons = document.querySelectorAll('.shape-btn');
+            const textEditor = document.getElementById('text-editor');
+            const textColorPicker = document.getElementById('text-color-picker');
+            const saveEditorBtn = document.getElementById('save-editor-btn');
+            const controls = document.getElementById('controls');
+            const undoBtn = document.getElementById('undo-btn');
+            const redoBtn = document.getElementById('redo-btn');
+
+            new PlainDraggable(controls, { handle: controls });
+
+            let nodes = {};
+            let lines = {};
+            let selectedNodeId = null;
+            let editorTarget = null;
+            let isLinkingMode = false;
+            let linkStartNodeId = null;
+
+            let historyStack = [];
+            let historyIndex = -1;
+            
+            function getContrastColor(hex) {
+                if (!hex) return '#2d3748';
+                const hexValue = hex.startsWith('#') ? hex.substring(1) : hex;
+                if (hexValue.length !== 6) return '#2d3748';
+                const r = parseInt(hexValue.substr(0, 2), 16);
+                const g = parseInt(hexValue.substr(2, 2), 16);
+                const b = parseInt(hexValue.substr(4, 2), 16);
+                const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                return (yiq >= 128) ? '#2d3748' : '#ffffff';
+            }
+
+            function createNode(id, htmlContent, x, y, parentId = null, bgColor = '#ffffff', shape = 'rect', rotation = 0, imgSrc = null, manualConnections = []) {
+                const nodeEl = document.createElement('div');
+                nodeEl.id = id;
+                nodeEl.className = 'node';
+                nodeEl.style.left = `${x}px`;
+                nodeEl.style.top = `${y}px`;
+
+                const rotationHandle = document.createElement('div');
+                rotationHandle.className = 'rotation-handle';
+                nodeEl.appendChild(rotationHandle);
+                
+                let mainContentWrapper, textContentEl;
+
+                if (shape === 'drop') {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'node-content-wrapper';
+                    mainContentWrapper = document.createElement('div');
+                    mainContentWrapper.className = 'node-content';
+                    wrapper.appendChild(mainContentWrapper);
+                    nodeEl.appendChild(wrapper);
+                } else {
+                    mainContentWrapper = document.createElement('div');
+                    mainContentWrapper.className = 'node-content';
+                    nodeEl.appendChild(mainContentWrapper);
+                }
+
+                textContentEl = document.createElement('div');
+                textContentEl.className = 'node-text-content';
+                textContentEl.innerHTML = htmlContent;
+
+                container.appendChild(nodeEl);
+                const textColor = getContrastColor(bgColor);
+
+                const node = {
+                    id, el: nodeEl, contentEl: mainContentWrapper, textContentEl, htmlContent, imgSrc, x, y, parentId, childrenIds: [], manualConnections: manualConnections || [], bgColor, textColor, shape, rotation
+                };
+                
+                updateNodeVisuals(node);
+
+                node.draggable = new PlainDraggable(nodeEl, { onMove: () => updateNodePosition(id) });
+                applyNodeStyle(node);
+
+                nodeEl.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'A' || e.target.classList.contains('remove-image-btn')) return;
+                    e.stopPropagation();
+                    if (isLinkingMode) {
+                        handleLinkClick(id);
+                    } else {
+                        selectNode(id);
+                    }
+                });
+                
+                textContentEl.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    showTextEditor(textContentEl, id);
+                });
+
+                rotationHandle.addEventListener('mousedown', e => {
+                    e.stopPropagation();
+                    initRotation(e, id);
+                });
+
+                nodes[id] = node;
+
+                if (parentId && nodes[parentId]) {
+                    nodes[parentId].childrenIds.push(id);
+                    createLine(parentId, id);
+                }
+                
+                return node;
+            }
+            
+            function updateNodeVisuals(node) {
+                node.contentEl.innerHTML = '';
+                if (node.imgSrc) {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'node-image-container';
+                    const img = document.createElement('img');
+                    img.src = node.imgSrc;
+                    img.className = 'node-image';
+                    imgContainer.appendChild(img);
+                    const removeBtn = document.createElement('button');
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.className = 'remove-image-btn';
+                    removeBtn.title = 'Ta bort bild';
+                    removeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        node.imgSrc = null;
+                        updateNodeVisuals(node);
+                        saveState();
+                    };
+                    imgContainer.appendChild(removeBtn);
+                    node.contentEl.appendChild(imgContainer);
+                }
+                node.contentEl.appendChild(node.textContentEl);
+                 Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
+            }
+
+            function createLine(startId, endId) {
+                const startEl = nodes[startId]?.el;
+                const endEl = nodes[endId]?.el;
+                if (!startEl || !endEl) return;
+                const lineId = `${startId}-${endId}`;
+                if (lines[lineId]) lines[lineId].remove();
+                const line = new LeaderLine(startEl, endEl, { color: '#718096', size: 2, path: 'fluid', endPlug: 'behind' });
+                lines[lineId] = line;
+            }
+
+            function applyNodeStyle(node) {
+                node.el.style.setProperty('--node-dynamic-bg', node.bgColor);
+                node.textContentEl.style.color = node.textColor;
+                node.el.classList.remove('shape-rect', 'shape-ellipse', 'shape-square', 'shape-drop');
+                node.el.classList.add(`shape-${node.shape}`);
+
+                const rotation = node.rotation || 0;
+                node.el.style.transform = `rotate(${rotation}deg)`;
+
+                if (node.shape === 'drop') {
+                    const wrapper = node.el.querySelector('.node-content-wrapper');
+                    if (wrapper) wrapper.style.transform = `rotate(${-45 - rotation}deg)`;
+                    node.contentEl.style.transform = `rotate(${45 - rotation + rotation}deg)`; // Simplified
+                } else {
+                    node.contentEl.style.transform = `rotate(-${rotation}deg)`;
+                }
+                
+                Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
+            }
+
+            function updateNodePosition(id) {
+                const node = nodes[id];
+                Object.values(lines).forEach(line => {
+                    if (line.start?.id === id || line.end?.id === id) {
+                        try { line.position(); } catch (e) {}
+                    }
+                });
+                node.x = node.draggable.left;
+                node.y = node.draggable.top;
+                if (!textEditor.classList.contains('hidden') && selectedNodeId === id) {
+                    positionEditor(node.el);
+                }
+            }
+            
+            function selectNode(id) {
+                if (isLinkingMode) return;
+                if (selectedNodeId && nodes[selectedNodeId]) {
+                    nodes[selectedNodeId].el.classList.remove('selected');
+                }
+                hideTextEditor();
+
+                if(id && nodes[id]){
+                    nodes[id].el.classList.add('selected');
+                    selectedNodeId = id;
+                    colorPicker.value = nodes[id].bgColor || '#ffffff';
+                    updateShapeUI(nodes[id].shape);
+                } else {
+                    selectedNodeId = null;
+                    colorPicker.value = '#ffffff';
+                    updateShapeUI(null);
+                }
+                updateButtonStates();
+            }
+
+            function deleteNode(id) {
+                if (!id || !nodes[id]) return;
+                hideTextEditor();
+                const nodeToDelete = nodes[id];
+                [...nodeToDelete.childrenIds].forEach(childId => deleteNode(childId));
+                
+                const parentId = nodeToDelete.parentId;
+                if(parentId && nodes[parentId]) {
+                    const lineId = `${parentId}-${id}`;
+                    if (lines[lineId]) { lines[lineId].remove(); delete lines[lineId]; }
+                    nodes[parentId].childrenIds = nodes[parentId].childrenIds.filter(child => child !== id);
+                }
+
+                [...nodeToDelete.manualConnections].forEach(endId => {
+                    const lineId = `${id}-${endId}`;
+                    if (lines[lineId]) { lines[lineId].remove(); delete lines[lineId]; }
+                });
+                Object.values(nodes).forEach(node => {
+                    if (node.manualConnections.includes(id)) {
+                        node.manualConnections = node.manualConnections.filter(connId => connId !== id);
+                        const lineId = `${node.id}-${id}`;
+                        if (lines[lineId]) { lines[lineId].remove(); delete lines[lineId]; }
+                    }
+                });
+
+                nodeToDelete.el.remove();
+                delete nodes[id];
+                if (selectedNodeId === id) selectNode(null);
+                saveState();
+            }
+
+            function toggleLinkingMode() {
+                isLinkingMode = !isLinkingMode;
+                document.body.classList.toggle('linking-mode', isLinkingMode);
+                linkNodesBtn.classList.toggle('active', isLinkingMode);
+                if (!isLinkingMode && linkStartNodeId) {
+                    nodes[linkStartNodeId]?.el.classList.remove('link-start');
+                    linkStartNodeId = null;
+                }
+                if(isLinkingMode) selectNode(null);
+            }
+
+            function handleLinkClick(clickedId) {
+                if (!linkStartNodeId) {
+                    linkStartNodeId = clickedId;
+                    nodes[clickedId].el.classList.add('link-start');
+                } else {
+                    const startNode = nodes[linkStartNodeId];
+                    if (linkStartNodeId !== clickedId && !startNode.manualConnections.includes(clickedId)) {
+                        startNode.manualConnections.push(clickedId);
+                        createLine(linkStartNodeId, clickedId);
+                        saveState();
+                    }
+                    startNode.el.classList.remove('link-start');
+                    linkStartNodeId = null;
+                    toggleLinkingMode();
+                }
+            }
+            
+            let rotatingNodeId = null, nodeCenter = {}, startAngle = 0;
+            function initRotation(e, id) {
+                rotatingNodeId = id;
+                const node = nodes[id];
+                const rect = node.el.getBoundingClientRect();
+                nodeCenter.x = rect.left + rect.width / 2;
+                nodeCenter.y = rect.top + rect.height / 2;
+                const startX = e.clientX - nodeCenter.x;
+                const startY = e.clientY - nodeCenter.y;
+                startAngle = Math.atan2(startY, startX) * (180 / Math.PI) - (node.rotation || 0);
+                window.addEventListener('mousemove', rotateNode);
+                window.addEventListener('mouseup', stopRotation);
+            }
+
+            function rotateNode(e) {
+                if (!rotatingNodeId) return;
+                const node = nodes[rotatingNodeId];
+                const mouseX = e.clientX - nodeCenter.x;
+                const mouseY = e.clientY - nodeCenter.y;
+                const currentAngle = Math.atan2(mouseY, mouseX) * (180 / Math.PI);
+                node.rotation = currentAngle - startAngle;
+                applyNodeStyle(node);
+            }
+
+            function stopRotation() {
+                if (rotatingNodeId) saveState();
+                rotatingNodeId = null;
+                window.removeEventListener('mousemove', rotateNode);
+                window.removeEventListener('mouseup', stopRotation);
+            }
+
+            function showTextEditor(contentEl, id) {
+                editorTarget = contentEl;
+                contentEl.contentEditable = true;
+                textEditor.classList.remove('hidden'); 
+                positionEditor(nodes[id].el);
+                contentEl.focus();
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(contentEl);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                const currentColor = window.getComputedStyle(contentEl).color;
+                textColorPicker.value = rgbToHex(currentColor);
+            }
+            
+            function rgbToHex(rgb) {
+                let sep = rgb.indexOf(",") > -1 ? "," : " ";
+                rgb = rgb.substr(4).split(")")[0].split(sep);
+                let r = (+rgb[0]).toString(16), g = (+rgb[1]).toString(16), b = (+rgb[2]).toString(16);
+                if (r.length == 1) r = "0" + r; if (g.length == 1) g = "0" + g; if (b.length == 1) b = "0" + b;
+                return "#" + r + g + b;
+            }
+
+            function hideTextEditor() {
+                if (editorTarget) {
+                    const id = editorTarget.closest('.node').id;
+                    if (nodes[id]) {
+                        nodes[id].htmlContent = editorTarget.innerHTML;
+                        const manualColor = editorTarget.querySelector('[style*="color"]');
+                        if (!manualColor) {
+                             nodes[id].textColor = getContrastColor(nodes[id].bgColor);
+                             applyNodeStyle(nodes[id]);
+                        }
+                    }
+                    editorTarget.contentEditable = false;
+                    saveState();
+                }
+                editorTarget = null;
+                textEditor.classList.add('hidden');
+            }
+
+            function positionEditor(nodeEl) {
+                const rect = nodeEl.getBoundingClientRect();
+                const editorHeight = textEditor.offsetHeight;
+                const editorWidth = textEditor.offsetWidth;
+                const spaceAbove = rect.top;
+                const spaceBelow = window.innerHeight - rect.bottom;
+                let top = (spaceAbove < (editorHeight + 10) && spaceBelow > spaceAbove) ? rect.bottom + 10 : rect.top - editorHeight - 10;
+                let left = rect.left + (rect.width / 2) - (editorWidth / 2);
+                if (left < 5) left = 5; if (left + editorWidth > window.innerWidth) left = window.innerWidth - editorWidth - 5;
+                if (top < 5) top = 5; if (top + editorHeight > window.innerHeight) top = window.innerHeight - editorHeight - 5;
+                textEditor.style.left = `${left}px`; textEditor.style.top = `${top}px`;
+            }
+
+            function updateButtonStates() {
+                const isNodeSelected = selectedNodeId !== null && nodes[selectedNodeId];
+                addChildBtn.disabled = !isNodeSelected;
+                deleteNodeBtn.disabled = !isNodeSelected || Object.keys(nodes).length === 1;
+                colorPicker.disabled = !isNodeSelected;
+                addImageBtn.disabled = !isNodeSelected;
+                shapeButtons.forEach(btn => btn.disabled = !isNodeSelected);
+            }
+
+            function updateShapeUI(shape) { shapeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.shape === shape)); }
+            
+            container.addEventListener('click', () => {
+                if (isLinkingMode) {
+                    if (linkStartNodeId) { nodes[linkStartNodeId].el.classList.remove('link-start'); linkStartNodeId = null; }
+                    toggleLinkingMode();
+                } else { selectNode(null); }
+            });
+            deleteNodeBtn.addEventListener('click', () => { if (selectedNodeId && nodes[selectedNodeId]) deleteNode(selectedNodeId); });
+            clearAllBtn.addEventListener('click', () => {
+                localStorage.removeItem('mindmapState');
+                historyStack = [];
+                historyIndex = -1;
+                location.reload();
+            });
+            addChildBtn.addEventListener('click', () => {
+                if (!selectedNodeId) return;
+                const parentNode = nodes[selectedNodeId];
+                const newId = `node-${Date.now()}`;
+                const newX = parentNode.x + 200;
+                const newY = parentNode.y + parentNode.childrenIds.length * 60;
+                createNode(newId, 'Ny nod', newX, newY, selectedNodeId, parentNode.bgColor, parentNode.shape, 0, null, []);
+                selectNode(newId);
+                saveState();
+            });
+            colorPicker.addEventListener('input', (e) => {
+                if (!selectedNodeId) return;
+                const node = nodes[selectedNodeId];
+                node.bgColor = e.target.value;
+                node.textColor = getContrastColor(node.bgColor);
+                applyNodeStyle(node);
+                saveState();
+            });
+            colorPicker.addEventListener('change', saveState); // Save state on final color choice for undo
+            addImageBtn.addEventListener('click', () => { if (selectedNodeId) { imageUploadInput.click(); } });
+            linkNodesBtn.addEventListener('click', toggleLinkingMode);
+            imageUploadInput.addEventListener('change', (event) => {
+                if (!selectedNodeId || !event.target.files || !event.target.files[0]) return;
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const node = nodes[selectedNodeId];
+                    node.imgSrc = e.target.result;
+                    updateNodeVisuals(node);
+                    saveState();
+                };
+                reader.readAsDataURL(file);
+                event.target.value = '';
+            });
+            shapeButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!selectedNodeId) return;
+                    const oldNode = nodes[selectedNodeId];
+                    const newShape = btn.dataset.shape;
+                    if (oldNode.shape === newShape) return;
+
+                    oldNode.shape = newShape;
+                    // Re-render the node structure without full deletion
+                    const tempContent = oldNode.contentEl.innerHTML;
+                    oldNode.el.innerHTML = ''; // Clear node
+                    oldNode.el.appendChild(document.createElement('div')).className = 'rotation-handle';
+                    
+                    let mainContentWrapper;
+                    if (newShape === 'drop') {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'node-content-wrapper';
+                        mainContentWrapper = document.createElement('div');
+                        mainContentWrapper.className = 'node-content';
+                        wrapper.appendChild(mainContentWrapper);
+                        oldNode.el.appendChild(wrapper);
+                    } else {
+                        mainContentWrapper = document.createElement('div');
+                        mainContentWrapper.className = 'node-content';
+                        oldNode.el.appendChild(mainContentWrapper);
+                    }
+                    mainContentWrapper.innerHTML = tempContent;
+                    oldNode.contentEl = mainContentWrapper;
+                    oldNode.textContentEl = mainContentWrapper.querySelector('.node-text-content');
+
+                    applyNodeStyle(oldNode);
+                    saveState();
+                });
+            });
+            container.addEventListener('dblclick', (e) => {
+                if (e.target !== container) return;
+                const newId = `node-${Date.now()}`;
+                const rect = container.getBoundingClientRect();
+                createNode(newId, 'Ny idé', e.clientX - rect.left, e.clientY - rect.top, null, '#ffffff', 'rect', 0, null, []);
+                selectNode(newId);
+                saveState();
+            });
+            textEditor.addEventListener('click', e => e.stopPropagation());
+            saveEditorBtn.addEventListener('click', hideTextEditor);
+
+            async function exportAsImage() {
+                 // ... same as before
+            }
+            exportBtn.addEventListener('click', exportAsImage);
+
+            // --- History (Undo/Redo) ---
+            function updateUndoRedoButtons() {
+                undoBtn.disabled = historyIndex <= 0;
+                redoBtn.disabled = historyIndex >= historyStack.length - 1;
+            }
+
+            function restoreState(stateToRestore) {
+                Object.values(lines).forEach(line => line.remove());
+                Object.values(nodes).forEach(node => node.el.remove());
+                nodes = {};
+                lines = {};
+
+                if (stateToRestore) {
+                    stateToRestore.nodes.forEach(data => createNode(data.id, data.htmlContent, data.x, data.y, null, data.bgColor, data.shape, data.rotation, data.imgSrc, data.manualConnections));
+                    stateToRestore.nodes.forEach(data => {
+                        if (data.parentId && nodes[data.parentId]) {
+                            nodes[data.id].parentId = data.parentId;
+                            nodes[data.parentId].childrenIds.push(data.id);
+                            createLine(data.parentId, data.id);
+                        }
+                        if (data.manualConnections?.length) { data.manualConnections.forEach(endId => createLine(data.id, endId)); }
+                    });
+                }
+                selectNode(null);
+            }
+
+            function undo() {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    const state = JSON.parse(historyStack[historyIndex]);
+                    restoreState(state);
+                    localStorage.setItem('mindmapState', JSON.stringify(state));
+                    updateUndoRedoButtons();
+                }
+            }
+
+            function redo() {
+                if (historyIndex < historyStack.length - 1) {
+                    historyIndex++;
+                    const state = JSON.parse(historyStack[historyIndex]);
+                    restoreState(state);
+                    localStorage.setItem('mindmapState', JSON.stringify(state));
+                    updateUndoRedoButtons();
+                }
+            }
+            
+            undoBtn.addEventListener('click', undo);
+            redoBtn.addEventListener('click', redo);
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+                if (e.ctrlKey && e.key === 'y') {
+                    e.preventDefault();
+                    redo();
+                }
+            });
+
+
+            function saveState(fromHistory = false) {
+                const state = { nodes: Object.values(nodes).map(n => ({ id: n.id, htmlContent: n.htmlContent, x: n.x, y: n.y, parentId: n.parentId, bgColor: n.bgColor, shape: n.shape, rotation: n.rotation, imgSrc: n.imgSrc, manualConnections: n.manualConnections })) };
+                const stateString = JSON.stringify(state);
+                localStorage.setItem('mindmapState', stateString);
+
+                if (!fromHistory) {
+                    // If we have undone, and now make a new change, we clear the "redo" history
+                    if (historyIndex < historyStack.length - 1) {
+                        historyStack = historyStack.slice(0, historyIndex + 1);
+                    }
+                    // Prevent saving identical subsequent states
+                    if (historyStack[historyIndex] !== stateString) {
+                         historyStack.push(stateString);
+                         historyIndex++;
+                    }
+                }
+                updateUndoRedoButtons();
+            }
+
+            function loadState() {
+                const savedStateString = localStorage.getItem('mindmapState');
+                if (savedStateString) {
+                    const state = JSON.parse(savedStateString);
+                    restoreState(state);
+                } else {
+                    createNode('root', 'Huvudidé', container.offsetWidth / 2 - 60, container.offsetHeight / 2 - 25);
+                }
+                // Save the initial state to history
+                historyStack = [];
+                historyIndex = -1;
+                saveState(); 
+            }
+            loadState();
+        });
+    </script>
+</body>
+</html>
+
