@@ -202,6 +202,20 @@
 <body class="w-screen h-screen m-0 p-0 overflow-hidden">
 
     <div id="mindmap-container" class="w-full h-full"></div>
+    
+    <!-- Modal för att namnge tankekartan -->
+    <div id="name-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 z-50 flex items-center justify-center hidden">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-4">Välkommen!</h2>
+            <p class="mb-6 text-gray-600">Vad vill du kalla din nya tankekarta?</p>
+            <input type="text" id="name-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="t.ex. Projektplanering, Romanidéer...">
+            <button id="start-btn" class="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors">Starta</button>
+        </div>
+    </div>
+
+    <!-- Visning av titel -->
+    <h1 id="mindmap-title" class="fixed bottom-4 left-4 z-20 text-xl font-semibold text-gray-500 p-2 rounded-lg cursor-pointer hover:bg-white/50 transition-colors"></h1>
+
 
     <!-- Kontrollpanel -->
     <div id="controls" class="fixed top-4 left-4 z-30 bg-white/80 backdrop-blur-sm p-2 rounded-xl shadow-lg flex items-center space-x-2 border border-gray-200">
@@ -269,6 +283,10 @@
             const controls = document.getElementById('controls');
             const undoBtn = document.getElementById('undo-btn');
             const redoBtn = document.getElementById('redo-btn');
+            const nameModal = document.getElementById('name-modal');
+            const nameInput = document.getElementById('name-input');
+            const startBtn = document.getElementById('start-btn');
+            const mindmapTitle = document.getElementById('mindmap-title');
 
             new PlainDraggable(controls, { handle: controls });
 
@@ -281,7 +299,8 @@
 
             let historyStack = [];
             let historyIndex = -1;
-            
+            let mindmapName = '';
+
             function getContrastColor(hex) {
                 if (!hex) return '#2d3748';
                 const hexValue = hex.startsWith('#') ? hex.substring(1) : hex;
@@ -332,7 +351,7 @@
                 
                 updateNodeVisuals(node);
 
-                node.draggable = new PlainDraggable(nodeEl, { onMove: () => updateNodePosition(id) });
+                node.draggable = new PlainDraggable(nodeEl, { onMove: () => updateNodePosition(id), onDragEnd: saveState });
                 applyNodeStyle(node);
 
                 nodeEl.addEventListener('click', (e) => {
@@ -411,9 +430,8 @@
                 node.el.style.transform = `rotate(${rotation}deg)`;
 
                 if (node.shape === 'drop') {
-                    const wrapper = node.el.querySelector('.node-content-wrapper');
-                    if (wrapper) wrapper.style.transform = `rotate(${-45 - rotation}deg)`;
-                    node.contentEl.style.transform = `rotate(${45 - rotation + rotation}deg)`; // Simplified
+                    // Correct rotation for drop shape
+                    node.contentEl.style.transform = `rotate(${45 - rotation}deg)`;
                 } else {
                     node.contentEl.style.transform = `rotate(-${rotation}deg)`;
                 }
@@ -459,7 +477,10 @@
                 if (!id || !nodes[id]) return;
                 hideTextEditor();
                 const nodeToDelete = nodes[id];
-                [...nodeToDelete.childrenIds].forEach(childId => deleteNode(childId));
+                [...nodeToDelete.childrenIds].forEach(childId => {
+                    const childNode = nodes[childId];
+                    if(childNode) childNode.parentId = null;
+                });
                 
                 const parentId = nodeToDelete.parentId;
                 if(parentId && nodes[parentId]) {
@@ -483,7 +504,6 @@
                 nodeToDelete.el.remove();
                 delete nodes[id];
                 if (selectedNodeId === id) selectNode(null);
-                saveState();
             }
 
             function toggleLinkingMode() {
@@ -609,19 +629,22 @@
             }
 
             function updateShapeUI(shape) { shapeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.shape === shape)); }
-            
+
             container.addEventListener('click', () => {
                 if (isLinkingMode) {
                     if (linkStartNodeId) { nodes[linkStartNodeId].el.classList.remove('link-start'); linkStartNodeId = null; }
                     toggleLinkingMode();
                 } else { selectNode(null); }
             });
-            deleteNodeBtn.addEventListener('click', () => { if (selectedNodeId && nodes[selectedNodeId]) deleteNode(selectedNodeId); });
+            deleteNodeBtn.addEventListener('click', () => { if (selectedNodeId && nodes[selectedNodeId]) { deleteNode(selectedNodeId); saveState(); } });
             clearAllBtn.addEventListener('click', () => {
-                localStorage.removeItem('mindmapState');
-                historyStack = [];
-                historyIndex = -1;
-                location.reload();
+                if (confirm('Är du säker på att du vill rensa hela tankekartan? Detta kan inte ångras.')) {
+                    localStorage.removeItem('mindmapState');
+                    localStorage.removeItem('mindmapName');
+                    historyStack = [];
+                    historyIndex = -1;
+                    location.reload();
+                }
             });
             addChildBtn.addEventListener('click', () => {
                 if (!selectedNodeId) return;
@@ -639,9 +662,8 @@
                 node.bgColor = e.target.value;
                 node.textColor = getContrastColor(node.bgColor);
                 applyNodeStyle(node);
-                saveState();
             });
-            colorPicker.addEventListener('change', saveState); // Save state on final color choice for undo
+            colorPicker.addEventListener('change', saveState);
             addImageBtn.addEventListener('click', () => { if (selectedNodeId) { imageUploadInput.click(); } });
             linkNodesBtn.addEventListener('click', toggleLinkingMode);
             imageUploadInput.addEventListener('change', (event) => {
@@ -661,34 +683,42 @@
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (!selectedNodeId) return;
-                    const oldNode = nodes[selectedNodeId];
+                    const node = nodes[selectedNodeId];
                     const newShape = btn.dataset.shape;
-                    if (oldNode.shape === newShape) return;
+                    if (node.shape === newShape) return;
 
-                    oldNode.shape = newShape;
-                    // Re-render the node structure without full deletion
-                    const tempContent = oldNode.contentEl.innerHTML;
-                    oldNode.el.innerHTML = ''; // Clear node
-                    oldNode.el.appendChild(document.createElement('div')).className = 'rotation-handle';
+                    node.shape = newShape;
+
+                    const rotationHandle = node.el.querySelector('.rotation-handle');
+                    const currentContentHTML = node.contentEl.innerHTML;
                     
+                    node.el.innerHTML = ''; // Rensa
+                    if (rotationHandle) node.el.appendChild(rotationHandle);
+
                     let mainContentWrapper;
-                    if (newShape === 'drop') {
+                     if (newShape === 'drop') {
                         const wrapper = document.createElement('div');
                         wrapper.className = 'node-content-wrapper';
                         mainContentWrapper = document.createElement('div');
                         mainContentWrapper.className = 'node-content';
                         wrapper.appendChild(mainContentWrapper);
-                        oldNode.el.appendChild(wrapper);
+                        node.el.appendChild(wrapper);
                     } else {
                         mainContentWrapper = document.createElement('div');
                         mainContentWrapper.className = 'node-content';
-                        oldNode.el.appendChild(mainContentWrapper);
+                        node.el.appendChild(mainContentWrapper);
                     }
-                    mainContentWrapper.innerHTML = tempContent;
-                    oldNode.contentEl = mainContentWrapper;
-                    oldNode.textContentEl = mainContentWrapper.querySelector('.node-text-content');
+                    mainContentWrapper.innerHTML = currentContentHTML;
+                    
+                    node.contentEl = mainContentWrapper;
+                    node.textContentEl = mainContentWrapper.querySelector('.node-text-content');
+                    
+                    node.textContentEl.addEventListener('dblclick', (ev) => {
+                        ev.stopPropagation();
+                        showTextEditor(node.textContentEl, node.id);
+                    });
 
-                    applyNodeStyle(oldNode);
+                    applyNodeStyle(node);
                     saveState();
                 });
             });
@@ -704,23 +734,35 @@
             saveEditorBtn.addEventListener('click', hideTextEditor);
 
             async function exportAsImage() {
-                 // ... same as before
+                const prevSelectedId = selectedNodeId;
+                selectNode(null); 
+                await new Promise(resolve => setTimeout(resolve, 100));
+                try {
+                    const canvas = await html2canvas(container, { backgroundColor: '#f0f4f8', logging: false, useCORS: true, onclone: (clonedDoc) => { /* ... */ } });
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/jpeg');
+                    const safeName = mindmapName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                    link.download = `${safeName || 'tankekarta'}.jpg`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } catch (error) { console.error('Oops!', error); alert('Kunde inte exportera.'); } 
+                finally { if (prevSelectedId) { selectNode(prevSelectedId); } }
             }
             exportBtn.addEventListener('click', exportAsImage);
-
-            // --- History (Undo/Redo) ---
+            
             function updateUndoRedoButtons() {
                 undoBtn.disabled = historyIndex <= 0;
                 redoBtn.disabled = historyIndex >= historyStack.length - 1;
             }
 
-            function restoreState(stateToRestore) {
+            function restoreState(stateToRestore, fromHistory = false) {
                 Object.values(lines).forEach(line => line.remove());
                 Object.values(nodes).forEach(node => node.el.remove());
                 nodes = {};
                 lines = {};
 
-                if (stateToRestore) {
+                if (stateToRestore && stateToRestore.nodes) {
                     stateToRestore.nodes.forEach(data => createNode(data.id, data.htmlContent, data.x, data.y, null, data.bgColor, data.shape, data.rotation, data.imgSrc, data.manualConnections));
                     stateToRestore.nodes.forEach(data => {
                         if (data.parentId && nodes[data.parentId]) {
@@ -732,14 +774,17 @@
                     });
                 }
                 selectNode(null);
+
+                if (fromHistory) {
+                    localStorage.setItem('mindmapState', JSON.stringify(stateToRestore));
+                }
             }
 
             function undo() {
                 if (historyIndex > 0) {
                     historyIndex--;
                     const state = JSON.parse(historyStack[historyIndex]);
-                    restoreState(state);
-                    localStorage.setItem('mindmapState', JSON.stringify(state));
+                    restoreState(state, true);
                     updateUndoRedoButtons();
                 }
             }
@@ -748,8 +793,7 @@
                 if (historyIndex < historyStack.length - 1) {
                     historyIndex++;
                     const state = JSON.parse(historyStack[historyIndex]);
-                    restoreState(state);
-                    localStorage.setItem('mindmapState', JSON.stringify(state));
+                    restoreState(state, true);
                     updateUndoRedoButtons();
                 }
             }
@@ -757,16 +801,9 @@
             undoBtn.addEventListener('click', undo);
             redoBtn.addEventListener('click', redo);
             document.addEventListener('keydown', (e) => {
-                if (e.ctrlKey && e.key === 'z') {
-                    e.preventDefault();
-                    undo();
-                }
-                if (e.ctrlKey && e.key === 'y') {
-                    e.preventDefault();
-                    redo();
-                }
+                if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+                if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
             });
-
 
             function saveState(fromHistory = false) {
                 const state = { nodes: Object.values(nodes).map(n => ({ id: n.id, htmlContent: n.htmlContent, x: n.x, y: n.y, parentId: n.parentId, bgColor: n.bgColor, shape: n.shape, rotation: n.rotation, imgSrc: n.imgSrc, manualConnections: n.manualConnections })) };
@@ -774,11 +811,9 @@
                 localStorage.setItem('mindmapState', stateString);
 
                 if (!fromHistory) {
-                    // If we have undone, and now make a new change, we clear the "redo" history
                     if (historyIndex < historyStack.length - 1) {
                         historyStack = historyStack.slice(0, historyIndex + 1);
                     }
-                    // Prevent saving identical subsequent states
                     if (historyStack[historyIndex] !== stateString) {
                          historyStack.push(stateString);
                          historyIndex++;
@@ -786,8 +821,8 @@
                 }
                 updateUndoRedoButtons();
             }
-
-            function loadState() {
+            
+            function initializeMindMap() {
                 const savedStateString = localStorage.getItem('mindmapState');
                 if (savedStateString) {
                     const state = JSON.parse(savedStateString);
@@ -795,12 +830,61 @@
                 } else {
                     createNode('root', 'Huvudidé', container.offsetWidth / 2 - 60, container.offsetHeight / 2 - 25);
                 }
-                // Save the initial state to history
                 historyStack = [];
                 historyIndex = -1;
-                saveState(); 
+                saveState();
             }
-            loadState();
+
+            function setupTitleEditing() {
+                mindmapTitle.addEventListener('click', () => {
+                    const currentTitle = mindmapTitle.textContent;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = currentTitle;
+                    input.className = 'absolute bottom-4 left-4 z-20 text-xl font-semibold bg-white p-2 rounded-lg border-2 border-blue-500';
+                    mindmapTitle.style.display = 'none';
+                    document.body.appendChild(input);
+                    input.focus();
+                    input.select();
+                    const saveTitle = () => {
+                        const newTitle = input.value.trim() || 'Namnlös Tankekarta';
+                        mindmapName = newTitle;
+                        mindmapTitle.textContent = newTitle;
+                        localStorage.setItem('mindmapName', newTitle);
+                        document.body.removeChild(input);
+                        mindmapTitle.style.display = 'block';
+                    };
+                    input.addEventListener('blur', saveTitle);
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') { input.blur(); } 
+                        else if (e.key === 'Escape') { document.body.removeChild(input); mindmapTitle.style.display = 'block'; }
+                    });
+                });
+            }
+
+            function handleStartup() {
+                mindmapName = localStorage.getItem('mindmapName');
+                if (!mindmapName) {
+                    nameModal.classList.remove('hidden');
+                    nameInput.focus();
+                } else {
+                    mindmapTitle.textContent = mindmapName;
+                    initializeMindMap();
+                }
+            }
+
+            startBtn.addEventListener('click', () => {
+                const name = nameInput.value.trim();
+                mindmapName = name || 'Min Tankekarta';
+                localStorage.setItem('mindmapName', mindmapName);
+                mindmapTitle.textContent = mindmapName;
+                nameModal.classList.add('hidden');
+                initializeMindMap();
+            });
+            nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { startBtn.click(); } });
+
+            handleStartup();
+            setupTitleEditing();
         });
     </script>
 </body>
