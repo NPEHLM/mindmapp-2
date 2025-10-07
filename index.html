@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/plain-draggable@2.5.14/plain-draggable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leader-line-new@1.1.9/leader-line.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -51,7 +50,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            transition: border-color 0.2s, box-shadow 0.2s, filter 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s, filter 0.2s, background-color 0.2s;
             user-select: none;
             z-index: 10;
         }
@@ -82,7 +81,7 @@
             right: -5px;
             width: 20px;
             height: 20px;
-            background-color: rgba(255, 0, 0, 0.8);
+            background-color: rgba(239, 68, 68, 0.9); /* red-500 */
             color: white;
             border: 1px solid white;
             border-radius: 50%;
@@ -94,6 +93,7 @@
             transition: opacity 0.2s;
             font-size: 12px;
             line-height: 1;
+            z-index: 5;
         }
         .node.shape-rect { border-radius: 8px; }
         .node.shape-ellipse { border-radius: 50%; }
@@ -182,8 +182,9 @@
         #controls {
             cursor: grab;
         }
-        .shape-btn.active, #link-nodes-btn.active {
+        .shape-btn.active, #link-nodes-btn.active, #toggle-arrows-btn.active {
             background-color: #4299e1;
+            color: white;
         }
         .editor-btn {
             padding: 0.25rem;
@@ -213,29 +214,73 @@
 </head>
 <body class="w-screen h-screen m-0 p-0 overflow-hidden">
 
+    <!-- Start Choice Modal -->
+    <div id="start-choice-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md text-center">
+            <h2 class="text-2xl font-bold mb-4">Välkommen till Tankekarta</h2>
+            <p class="mb-8 text-gray-600">Hur vill du börja?</p>
+            <div class="flex flex-col gap-4">
+                <button id="new-choice-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                    Starta ny tankekarta
+                </button>
+                <button id="upload-choice-btn" class="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition-colors text-lg flex items-center justify-center gap-2">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    Ladda upp fil
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="mindmap-container" class="w-full h-full"></div>
     
     <!-- Modal för att namnge tankekartan -->
     <div id="name-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
-            <h2 class="text-2xl font-bold mb-4">Välkommen!</h2>
+            <h2 class="text-2xl font-bold mb-4">Starta en ny tankekarta</h2>
             <p class="mb-6 text-gray-600">Vad vill du kalla din nya tankekarta?</p>
             <input type="text" id="name-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="t.ex. Projektplanering, Romanidéer...">
             <button id="start-btn" class="w-full mt-6 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors">Starta</button>
         </div>
     </div>
 
+    <!-- Generic Modal för bekräftelser och meddelanden -->
+    <div id="generic-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 z-[100] flex items-center justify-center hidden transition-opacity duration-300">
+        <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md transform scale-95 transition-transform duration-300">
+            <h2 id="generic-modal-title" class="text-xl font-bold mb-4">Title</h2>
+            <p id="generic-modal-message" class="mb-6 text-gray-600">Message</p>
+            <div id="generic-modal-input-container" class="hidden mb-4">
+                 <input type="text" id="generic-modal-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="">
+            </div>
+            <div id="generic-modal-buttons" class="flex justify-end gap-4 mt-6">
+                 <!-- Buttons will be added here by JS -->
+            </div>
+        </div>
+    </div>
+
+
     <!-- Visning av titel -->
     <h1 id="mindmap-title" class="fixed bottom-4 left-4 z-20 text-xl font-semibold text-gray-500 p-2 rounded-lg cursor-pointer hover:bg-white/50 transition-colors"></h1>
 
 
     <!-- Kontrollpanel -->
-    <div id="controls" class="fixed top-4 left-4 z-30 bg-white/80 backdrop-blur-sm p-2 rounded-xl shadow-lg flex items-center space-x-2 border border-gray-200">
+    <div id="controls" class="fixed top-4 left-4 z-30 bg-white/80 backdrop-blur-sm p-2 rounded-xl shadow-lg flex items-center flex-wrap gap-2 border border-gray-200">
         <div class="flex items-center bg-gray-100 rounded-lg p-1">
-            <button id="undo-btn" class="p-2 rounded-md disabled:opacity-50" title="Ångra (Ctrl+Z)">
+            <button id="new-btn" class="p-2 rounded-md hover:bg-gray-200" title="Ny tankekarta">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+            </button>
+             <button id="save-btn" class="p-2 rounded-md hover:bg-gray-200" title="Spara projekt (JSON)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            </button>
+            <button id="open-btn" class="p-2 rounded-md hover:bg-gray-200" title="Öppna från fil">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </button>
+        </div>
+        <div class="flex items-center bg-gray-100 rounded-lg p-1">
+            <button id="undo-btn" class="p-2 rounded-md disabled:opacity-50 hover:bg-gray-200" title="Ångra (Ctrl+Z)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"></path><path d="M4 10l5-5 5 5"></path><path d="M9 3v12"></path></svg>
             </button>
-            <button id="redo-btn" class="p-2 rounded-md disabled:opacity-50" title="Gör om (Ctrl+Y)">
+            <button id="redo-btn" class="p-2 rounded-md disabled:opacity-50 hover:bg-gray-200" title="Gör om (Ctrl+Y)">
                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="scale(-1, 1)"><path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"></path><path d="M4 10l5-5 5 5"></path><path d="M9 3v12"></path></svg>
             </button>
         </div>
@@ -243,15 +288,15 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
         </button>
         <div class="flex items-center bg-gray-100 rounded-lg p-1">
-             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="rect" title="Rektangel"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg></button>
-             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="ellipse" title="Ellips"><svg width="20" height="20" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="7" fill="currentColor"/></svg></button>
-             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="square" title="Kvadrat"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg></button>
-             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="star" title="Stjärna">
+              <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="rect" title="Rektangel"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg></button>
+              <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="ellipse" title="Ellips"><svg width="20" height="20" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="7" fill="currentColor"/></svg></button>
+              <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="square" title="Kvadrat"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg></button>
+              <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="star" title="Stjärna">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
-             </button>
-             <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="sun" title="Sol">
+              </button>
+              <button class="shape-btn p-2 rounded-md disabled:opacity-50" data-shape="sun" title="Sol">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18a6 6 0 100-12 6 6 0 000 12zM11 1h2v3h-2V1zm0 19h2v3h-2v-3zM3.515 4.929l1.414-1.414L7.05 5.636 5.636 7.05 3.515 4.93zM16.95 18.364l1.414-1.414 2.121 2.121-1.414 1.414-2.121-2.121zM1 11h3v2H1v-2zm19 0h3v2h-3v-2zM4.929 16.95l2.121-2.121 1.414 1.414-2.121 2.121-1.414-1.414zM18.364 5.636l2.121-2.121 1.414 1.414-2.121 2.121-1.414-1.414z"/></svg>
-             </button>
+              </button>
         </div>
         <input type="color" id="color-picker" value="#ffffff" class="w-10 h-10 p-1 bg-white border border-gray-300 rounded-lg cursor-pointer disabled:cursor-not-allowed disabled:opacity-50" title="Ändra nodfärg">
         <input type="color" id="bg-color-picker" value="#f0f4f8" class="w-10 h-10 p-1 bg-white border border-gray-300 rounded-lg cursor-pointer" title="Ändra bakgrundsfärg">
@@ -261,14 +306,14 @@
         <button id="link-nodes-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold p-2 rounded-lg transition-colors h-10 w-10 flex items-center justify-center" title="Koppla ihop noder manuellt">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>
         </button>
+        <button id="toggle-arrows-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold p-2 rounded-lg transition-colors h-10 w-10 flex items-center justify-center" title="Visa/dölj pilar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
         <button id="delete-node-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2" title="Ta bort nod">
              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
         </button>
-        <button id="export-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2" title="Ladda ner som bild">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        </button>
         <button id="clear-all-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center space-x-2" title="Rensa allt">
-             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
         </button>
     </div>
     
@@ -284,19 +329,25 @@
         <button id="save-editor-btn" class="bg-green-500 text-white rounded p-1"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
     </div>
 
+    <input type="file" id="open-file-input" class="hidden" accept=".mindmap,.json">
     <input type="file" id="image-upload-input" class="hidden" accept="image/*">
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Element references
             const container = document.getElementById('mindmap-container');
+            const newBtn = document.getElementById('new-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const openBtn = document.getElementById('open-btn');
+            const openFileInput = document.getElementById('open-file-input');
             const addChildBtn = document.getElementById('add-child-btn');
             const deleteNodeBtn = document.getElementById('delete-node-btn');
             const clearAllBtn = document.getElementById('clear-all-btn');
             const colorPicker = document.getElementById('color-picker');
             const bgColorPicker = document.getElementById('bg-color-picker');
-            const exportBtn = document.getElementById('export-btn');
             const addImageBtn = document.getElementById('add-image-btn');
             const linkNodesBtn = document.getElementById('link-nodes-btn');
+            const toggleArrowsBtn = document.getElementById('toggle-arrows-btn');
             const imageUploadInput = document.getElementById('image-upload-input');
             const shapeButtons = document.querySelectorAll('.shape-btn');
             const textEditor = document.getElementById('text-editor');
@@ -309,20 +360,95 @@
             const nameInput = document.getElementById('name-input');
             const startBtn = document.getElementById('start-btn');
             const mindmapTitle = document.getElementById('mindmap-title');
+            const startChoiceModal = document.getElementById('start-choice-modal');
+            const newChoiceBtn = document.getElementById('new-choice-btn');
+            const uploadChoiceBtn = document.getElementById('upload-choice-btn');
 
-            new PlainDraggable(controls, { handle: controls });
-
+            // State variables
             let nodes = {};
             let lines = {};
             let selectedNodeId = null;
             let editorTarget = null;
             let isLinkingMode = false;
             let linkStartNodeId = null;
-
+            let showArrows = true;
+            
             let historyStack = [];
             let historyIndex = -1;
             let mindmapName = '';
             let currentBgColor = '#f0f4f8';
+
+            const levelColors = [
+                '#ffffff', // Nivå 0 (root)
+                '#caffbf', // Nivå 1 (grön)
+                '#9bf6ff', // Nivå 2 (cyan)
+                '#a0c4ff', // Nivå 3 (blå)
+                '#bdb2ff', // Nivå 4 (lila)
+                '#ffc6ff', // Nivå 5 (rosa)
+                '#ffd6a5', // Nivå 6 (orange)
+                '#fdffb6'  // Nivå 7 (gul)
+            ];
+
+            // --- Modal Logic ---
+            const genericModal = document.getElementById('generic-modal');
+            const modalTitle = document.getElementById('generic-modal-title');
+            const modalMessage = document.getElementById('generic-modal-message');
+            const modalInputContainer = document.getElementById('generic-modal-input-container');
+            const modalInput = document.getElementById('generic-modal-input');
+            const modalButtons = document.getElementById('generic-modal-buttons');
+
+            function showModal(config) {
+                 return new Promise((resolve) => {
+                    modalTitle.textContent = config.title;
+                    modalMessage.textContent = config.message;
+                    modalButtons.innerHTML = '';
+                    
+                    if (config.type === 'prompt') {
+                        modalInputContainer.classList.remove('hidden');
+                        modalInput.value = config.defaultValue || '';
+                        modalInput.placeholder = config.placeholder || '';
+                    } else {
+                        modalInputContainer.classList.add('hidden');
+                    }
+
+                    config.buttons.forEach(btnConfig => {
+                        const button = document.createElement('button');
+                        button.textContent = btnConfig.text;
+                        button.className = btnConfig.class;
+                        button.onclick = () => {
+                            closeModal();
+                            const result = config.type === 'prompt' ? modalInput.value : btnConfig.value;
+                            resolve(result);
+                        };
+                        modalButtons.appendChild(button);
+                    });
+
+                    genericModal.classList.remove('hidden');
+                    setTimeout(() => {
+                        genericModal.classList.add('opacity-100');
+                        genericModal.querySelector('div').classList.add('scale-100');
+                    }, 10);
+                });
+            }
+
+            function closeModal() {
+                genericModal.classList.remove('opacity-100');
+                genericModal.querySelector('div').classList.remove('scale-100');
+                setTimeout(() => genericModal.classList.add('hidden'), 300);
+            }
+
+            // --- Core Mindmap Logic ---
+            new PlainDraggable(controls, { handle: controls });
+            
+            function getNodeLevel(nodeId) {
+                let level = 0;
+                let currentNode = nodes[nodeId];
+                while (currentNode && currentNode.parentId && nodes[currentNode.parentId]) {
+                    level++;
+                    currentNode = nodes[currentNode.parentId];
+                }
+                return level;
+            }
 
             function getContrastColor(hex, forLines = false) {
                 if (!hex) return forLines ? '#718096' : '#2d3748';
@@ -334,7 +460,7 @@
                 const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
                 
                 if (forLines) {
-                     return (yiq >= 128) ? '#718096' : '#ffffff';
+                    return (yiq >= 128) ? '#718096' : '#ffffff';
                 }
                 return (yiq >= 128) ? '#2d3748' : '#ffffff';
             }
@@ -350,13 +476,11 @@
                 rotationHandle.className = 'rotation-handle';
                 nodeEl.appendChild(rotationHandle);
                 
-                let mainContentWrapper, textContentEl;
-                
-                mainContentWrapper = document.createElement('div');
+                let mainContentWrapper = document.createElement('div');
                 mainContentWrapper.className = 'node-content';
                 nodeEl.appendChild(mainContentWrapper);
 
-                textContentEl = document.createElement('div');
+                let textContentEl = document.createElement('div');
                 textContentEl.className = 'node-text-content';
                 textContentEl.innerHTML = htmlContent;
 
@@ -419,13 +543,13 @@
                         e.stopPropagation();
                         node.imgSrc = null;
                         updateNodeVisuals(node);
+                        Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
                         saveState();
                     };
                     imgContainer.appendChild(removeBtn);
                     node.contentEl.appendChild(imgContainer);
                 }
                 node.contentEl.appendChild(node.textContentEl);
-                 Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
             }
 
             function createLine(startId, endId) {
@@ -435,7 +559,13 @@
                 const lineId = `${startId}-${endId}`;
                 if (lines[lineId]) lines[lineId].remove();
                 const lineColor = getContrastColor(currentBgColor, true);
-                const line = new LeaderLine(startEl, endEl, { color: lineColor, size: 2, path: 'fluid', endPlug: 'behind' });
+                const line = new LeaderLine(startEl, endEl, {
+                    parent: container, 
+                    color: lineColor, 
+                    size: 2, 
+                    path: 'fluid', 
+                    endPlug: showArrows ? 'arrow1' : 'behind'
+                });
                 lines[lineId] = line;
             }
 
@@ -447,16 +577,18 @@
 
                 const rotation = node.rotation || 0;
                 node.el.style.transform = `rotate(${rotation}deg)`;
-                node.contentEl.style.transform = `rotate(-${rotation}deg)`;
+                node.contentEl.style.transform = `rotate(${-rotation}deg)`;
                 
                 Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
             }
 
             function updateNodePosition(id) {
                 const node = nodes[id];
+                 if (!node) return;
                 Object.values(lines).forEach(line => {
-                    if (line.start?.id === id || line.end?.id === id) {
-                        try { line.position(); } catch (e) {}
+                    const lineId = Object.keys(lines).find(key => lines[key] === line);
+                    if (lineId && (lineId.startsWith(id + '-') || lineId.endsWith('-' + id))) {
+                         try { line.position(); } catch (e) { console.warn("Could not reposition line", e); }
                     }
                 });
                 node.x = node.draggable.left;
@@ -590,17 +722,21 @@
             }
             
             function rgbToHex(rgb) {
-                let sep = rgb.indexOf(",") > -1 ? "," : " ";
-                rgb = rgb.substr(4).split(")")[0].split(sep);
-                let r = (+rgb[0]).toString(16), g = (+rgb[1]).toString(16), b = (+rgb[2]).toString(16);
-                if (r.length == 1) r = "0" + r; if (g.length == 1) g = "0" + g; if (b.length == 1) b = "0" + b;
-                return "#" + r + g + b;
+                try {
+                    let sep = rgb.indexOf(",") > -1 ? "," : " ";
+                    rgb = rgb.substr(4).split(")")[0].split(sep);
+                    let r = (+rgb[0]).toString(16), g = (+rgb[1]).toString(16), b = (+rgb[2]).toString(16);
+                    if (r.length == 1) r = "0" + r; if (g.length == 1) g = "0" + g; if (b.length == 1) b = "0" + b;
+                    return "#" + r + g + b;
+                } catch {
+                    return "#000000"; // Fallback
+                }
             }
 
             function hideTextEditor() {
                 if (editorTarget) {
-                    const id = editorTarget.closest('.node').id;
-                    if (nodes[id]) {
+                    const id = editorTarget.closest('.node')?.id;
+                    if (id && nodes[id]) {
                         nodes[id].htmlContent = editorTarget.innerHTML;
                         const manualColor = editorTarget.querySelector('[style*="color"]');
                         if (!manualColor) {
@@ -630,7 +766,7 @@
 
             function updateButtonStates() {
                 const isNodeSelected = selectedNodeId !== null && nodes[selectedNodeId];
-                addChildBtn.disabled = !isNodeSelected;
+                addChildBtn.disabled = Object.keys(nodes).length === 0;
                 deleteNodeBtn.disabled = !isNodeSelected || Object.keys(nodes).length === 1;
                 colorPicker.disabled = !isNodeSelected;
                 addImageBtn.disabled = !isNodeSelected;
@@ -638,7 +774,21 @@
             }
 
             function updateShapeUI(shape) { shapeButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.shape === shape)); }
+            
+            function redrawAllLines() {
+                Object.values(lines).forEach(line => line.remove());
+                lines = {};
+                 Object.values(nodes).forEach(node => {
+                    if (node.parentId && nodes[node.parentId]) {
+                        createLine(node.parentId, node.id);
+                    }
+                    if (node.manualConnections) {
+                        node.manualConnections.forEach(endId => createLine(node.id, endId));
+                    }
+                });
+            }
 
+            // --- Event Listeners ---
             container.addEventListener('click', () => {
                 if (isLinkingMode) {
                     if (linkStartNodeId) { nodes[linkStartNodeId].el.classList.remove('link-start'); linkStartNodeId = null; }
@@ -646,26 +796,27 @@
                 } else { selectNode(null); }
             });
             deleteNodeBtn.addEventListener('click', () => { if (selectedNodeId && nodes[selectedNodeId]) { deleteNode(selectedNodeId); saveState(); } });
-            clearAllBtn.addEventListener('click', () => {
-                if (confirm('Är du säker på att du vill rensa hela tankekartan? Detta kan inte ångras.')) {
-                    localStorage.removeItem('mindmapState');
-                    localStorage.removeItem('mindmapName');
-                    localStorage.removeItem('mindmapBgColor');
-                    historyStack = [];
-                    historyIndex = -1;
-                    location.reload();
-                }
-            });
+            
             addChildBtn.addEventListener('click', () => {
-                if (!selectedNodeId) return;
-                const parentNode = nodes[selectedNodeId];
+                const parentId = selectedNodeId || 'root';
+                const parentNode = nodes[parentId];
+                if (!parentNode) {
+                    console.error("Kunde inte hitta en föräldranod att koppla till.");
+                    return;
+                }
                 const newId = `node-${Date.now()}`;
                 const newX = parentNode.x + 200;
                 const newY = parentNode.y + parentNode.childrenIds.length * 60;
-                createNode(newId, 'Ny nod', newX, newY, selectedNodeId, parentNode.bgColor, parentNode.shape, 0, null, []);
+                
+                const parentLevel = getNodeLevel(parentId);
+                const newLevel = parentLevel + 1;
+                const newColor = levelColors[newLevel % levelColors.length];
+
+                createNode(newId, 'Ny nod', newX, newY, parentId, newColor, parentNode.shape, 0, null, []);
                 selectNode(newId);
                 saveState();
             });
+
             colorPicker.addEventListener('input', (e) => {
                 if (!selectedNodeId) return;
                 const node = nodes[selectedNodeId];
@@ -678,9 +829,32 @@
             bgColorPicker.addEventListener('input', (e) => {
                 updateBackgroundColor(e.target.value);
             });
+             bgColorPicker.addEventListener('change', saveState);
 
             addImageBtn.addEventListener('click', () => { if (selectedNodeId) { imageUploadInput.click(); } });
             linkNodesBtn.addEventListener('click', toggleLinkingMode);
+            
+            toggleArrowsBtn.addEventListener('click', () => {
+                showArrows = !showArrows;
+                toggleArrowsBtn.classList.toggle('active', showArrows);
+                redrawAllLines();
+                saveState(); // Save arrow state preference
+            });
+            
+            clearAllBtn.addEventListener('click', async () => {
+                const confirmed = await showModal({
+                    title: 'Rensa allt',
+                    message: 'Är du säker på att du vill ta bort allt? Denna åtgärd kan inte ångras.',
+                    buttons: [
+                        { text: 'Avbryt', value: false, class: 'py-2 px-4 bg-gray-200 rounded-lg hover:bg-gray-300' },
+                        { text: 'Rensa allt', value: true, class: 'py-2 px-4 bg-red-500 text-white rounded-lg hover:bg-red-600' }
+                    ]
+                });
+                if(confirmed) {
+                    initializeBlankMap(mindmapName);
+                }
+            });
+
             imageUploadInput.addEventListener('change', (event) => {
                 if (!selectedNodeId || !event.target.files || !event.target.files[0]) return;
                 const file = event.target.files[0];
@@ -689,6 +863,7 @@
                     const node = nodes[selectedNodeId];
                     node.imgSrc = e.target.result;
                     updateNodeVisuals(node);
+                    redrawAllLines();
                     saveState();
                 };
                 reader.readAsDataURL(file);
@@ -704,30 +879,42 @@
                     node.shape = newShape;
                     applyNodeStyle(node);
                     saveState();
+                    updateShapeUI(newShape);
                 });
             });
             container.addEventListener('dblclick', (e) => {
                 if (e.target !== container) return;
                 const newId = `node-${Date.now()}`;
                 const rect = container.getBoundingClientRect();
-                createNode(newId, 'Ny idé', e.clientX - rect.left, e.clientY - rect.top, null, '#ffffff', 'rect', 0, null, []);
+                const newColor = levelColors[0]; // Fristående noder är nivå 0
+                createNode(newId, 'Ny idé', e.clientX - rect.left, e.clientY - rect.top, null, newColor, 'rect', 0, null, []);
                 selectNode(newId);
                 saveState();
             });
             
             document.querySelectorAll('.editor-btn').forEach(btn => {
-                btn.addEventListener('mousedown', (e) => {
+                btn.addEventListener('mousedown', async (e) => {
                     e.preventDefault();
                     let command = btn.dataset.command;
                     
                     if (command === 'createLink') {
                         const selection = window.getSelection();
                         if (selection.toString().length === 0) {
-                            alert('Markera först texten du vill göra till en länk.');
+                            showModal({ title: 'Fel', message: 'Markera först texten du vill göra till en länk.', buttons: [{ text: 'OK', value: true, class: 'py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600' }] });
                             return;
                         }
                         const savedRange = selection.getRangeAt(0).cloneRange();
-                        const url = prompt('Ange URL:', 'https://');
+                        const url = await showModal({
+                            title: 'Infoga Länk',
+                            message: 'Ange webbadressen (URL) för länken:',
+                            type: 'prompt',
+                            defaultValue: 'https://',
+                            buttons: [
+                                { text: 'Avbryt', value: null, class: 'py-2 px-4 bg-gray-200 rounded-lg hover:bg-gray-300' },
+                                { text: 'Infoga', value: true, class: 'py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600' }
+                            ]
+                        });
+
                         if (url) {
                             selection.removeAllRanges();
                             selection.addRange(savedRange);
@@ -740,7 +927,7 @@
                             range.selectNodeContents(editorTarget);
                             selection.removeAllRanges();
                             selection.addRange(range);
-                        }
+                         }
                     } else {
                         document.execCommand(command, false, null);
                     }
@@ -754,38 +941,27 @@
 
             saveEditorBtn.addEventListener('click', hideTextEditor);
 
-            async function exportAsImage() {
-                const prevSelectedId = selectedNodeId;
-                selectNode(null); 
-                await new Promise(resolve => setTimeout(resolve, 100));
-                try {
-                    const canvas = await html2canvas(container, { backgroundColor: currentBgColor, logging: false, useCORS: true, onclone: (clonedDoc) => { /* ... */ } });
-                    const link = document.createElement('a');
-                    link.href = canvas.toDataURL('image/jpeg');
-                    const safeName = mindmapName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                    link.download = `${safeName || 'tankekarta'}.jpg`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                } catch (error) { console.error('Oops!', error); alert('Kunde inte exportera.'); } 
-                finally { if (prevSelectedId) { selectNode(prevSelectedId); } }
-            }
-            exportBtn.addEventListener('click', exportAsImage);
-            
+            // --- History (Undo/Redo) and State Management ---
             function updateUndoRedoButtons() {
                 undoBtn.disabled = historyIndex <= 0;
                 redoBtn.disabled = historyIndex >= historyStack.length - 1;
             }
 
-            function restoreState(stateToRestore, fromHistory = false) {
+            function restoreState(state, fromHistory = false) {
                 Object.values(lines).forEach(line => line.remove());
                 Object.values(nodes).forEach(node => node.el.remove());
                 nodes = {};
                 lines = {};
 
-                if (stateToRestore && stateToRestore.nodes) {
-                    stateToRestore.nodes.forEach(data => createNode(data.id, data.htmlContent, data.x, data.y, null, data.bgColor, data.shape, data.rotation, data.imgSrc, data.manualConnections));
-                    stateToRestore.nodes.forEach(data => {
+                // Default arrows to ON if it's a blank slate (new map or clear all).
+                showArrows = true; 
+
+                if (state && state.nodes) {
+                    // If loading a file, respect its setting. Default to true if the setting doesn't exist.
+                    showArrows = typeof state.showArrows !== 'undefined' ? state.showArrows : true; 
+                    
+                    state.nodes.forEach(data => createNode(data.id, data.htmlContent, data.x, data.y, null, data.bgColor, data.shape, data.rotation, data.imgSrc, data.manualConnections));
+                    state.nodes.forEach(data => {
                         if (data.parentId && nodes[data.parentId]) {
                             nodes[data.id].parentId = data.parentId;
                             nodes[data.parentId].childrenIds.push(data.id);
@@ -793,12 +969,10 @@
                         }
                         if (data.manualConnections?.length) { data.manualConnections.forEach(endId => createLine(data.id, endId)); }
                     });
-                }
+                } 
+                toggleArrowsBtn.classList.toggle('active', showArrows);
                 selectNode(null);
-
-                if (fromHistory) {
-                    localStorage.setItem('mindmapState', JSON.stringify(stateToRestore));
-                }
+                updateUndoRedoButtons();
             }
 
             function undo() {
@@ -806,7 +980,6 @@
                     historyIndex--;
                     const state = JSON.parse(historyStack[historyIndex]);
                     restoreState(state, true);
-                    updateUndoRedoButtons();
                 }
             }
 
@@ -815,7 +988,6 @@
                     historyIndex++;
                     const state = JSON.parse(historyStack[historyIndex]);
                     restoreState(state, true);
-                    updateUndoRedoButtons();
                 }
             }
             
@@ -827,10 +999,18 @@
                 if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
             });
 
+            function getCurrentState() {
+                return { 
+                    mindmapName: mindmapName,
+                    bgColor: currentBgColor,
+                    showArrows: showArrows,
+                    nodes: Object.values(nodes).map(n => ({ id: n.id, htmlContent: n.htmlContent, x: n.x, y: n.y, parentId: n.parentId, bgColor: n.bgColor, shape: n.shape, rotation: n.rotation, imgSrc: n.imgSrc, manualConnections: n.manualConnections })) 
+                };
+            }
+
             function saveState(fromHistory = false) {
-                const state = { nodes: Object.values(nodes).map(n => ({ id: n.id, htmlContent: n.htmlContent, x: n.x, y: n.y, parentId: n.parentId, bgColor: n.bgColor, shape: n.shape, rotation: n.rotation, imgSrc: n.imgSrc, manualConnections: n.manualConnections })) };
+                const state = getCurrentState();
                 const stateString = JSON.stringify(state);
-                localStorage.setItem('mindmapState', stateString);
 
                 if (!fromHistory) {
                     if (historyIndex < historyStack.length - 1) {
@@ -844,14 +1024,12 @@
                 updateUndoRedoButtons();
             }
             
-            function initializeMindMap() {
-                const savedStateString = localStorage.getItem('mindmapState');
-                if (savedStateString) {
-                    const state = JSON.parse(savedStateString);
-                    restoreState(state);
-                } else {
-                    createNode('root', 'Huvudidé', container.offsetWidth / 2 - 60, container.offsetHeight / 2 - 25);
-                }
+            function initializeBlankMap(name) {
+                restoreState(null);
+                mindmapName = name || 'Min Tankekarta';
+                mindmapTitle.textContent = mindmapName;
+                updateBackgroundColor('#f0f4f8');
+                createNode('root', 'Huvudidé', container.offsetWidth / 2 - 60, container.offsetHeight / 2 - 25, null, levelColors[0]);
                 historyStack = [];
                 historyIndex = -1;
                 saveState();
@@ -872,9 +1050,9 @@
                         const newTitle = input.value.trim() || 'Namnlös Tankekarta';
                         mindmapName = newTitle;
                         mindmapTitle.textContent = newTitle;
-                        localStorage.setItem('mindmapName', newTitle);
                         document.body.removeChild(input);
                         mindmapTitle.style.display = 'block';
+                        saveState();
                     };
                     input.addEventListener('blur', saveTitle);
                     input.addEventListener('keydown', (e) => {
@@ -887,40 +1065,90 @@
             function updateBackgroundColor(color) {
                 currentBgColor = color;
                 container.style.backgroundColor = color;
+                bgColorPicker.value = color;
                 const lineColor = getContrastColor(color, true);
-                Object.values(lines).forEach(line => line.setOptions({ color: lineColor }));
-                localStorage.setItem('mindmapBgColor', color);
+                Object.values(lines).forEach(line => { try { line.setOptions({ color: lineColor }); } catch(e){} });
             }
-
-            function handleStartup() {
-                mindmapName = localStorage.getItem('mindmapName');
-                const savedBgColor = localStorage.getItem('mindmapBgColor');
-
-                if (savedBgColor) {
-                    updateBackgroundColor(savedBgColor);
-                    bgColorPicker.value = savedBgColor;
-                }
-
-                if (!mindmapName) {
+            
+            newBtn.addEventListener('click', async () => {
+                 const confirmed = await showModal({
+                    title: 'Ny Tankekarta',
+                    message: 'Är du säker? Allt osparat arbete kommer att försvinna.',
+                    buttons: [
+                        { text: 'Avbryt', value: false, class: 'py-2 px-4 bg-gray-200 rounded-lg hover:bg-gray-300' },
+                        { text: 'Skapa ny', value: true, class: 'py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600' }
+                    ]
+                });
+                
+                if (confirmed) {
                     nameModal.classList.remove('hidden');
+                    nameInput.value = '';
                     nameInput.focus();
-                } else {
-                    mindmapTitle.textContent = mindmapName;
-                    initializeMindMap();
                 }
-            }
+            });
 
             startBtn.addEventListener('click', () => {
                 const name = nameInput.value.trim();
-                mindmapName = name || 'Min Tankekarta';
-                localStorage.setItem('mindmapName', mindmapName);
-                mindmapTitle.textContent = mindmapName;
                 nameModal.classList.add('hidden');
-                initializeMindMap();
+                initializeBlankMap(name);
             });
             nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { startBtn.click(); } });
 
-            handleStartup();
+            saveBtn.addEventListener('click', () => {
+                const state = getCurrentState();
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                const safeName = mindmapName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", `${safeName || 'tankekarta'}.json`);
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            });
+            
+            openBtn.addEventListener('click', () => openFileInput.click());
+            
+            newChoiceBtn.addEventListener('click', () => {
+                startChoiceModal.style.display = 'none';
+                nameModal.classList.remove('hidden');
+                nameInput.value = '';
+                nameInput.focus();
+            });
+
+            uploadChoiceBtn.addEventListener('click', () => {
+                startChoiceModal.style.display = 'none';
+                openFileInput.click();
+            });
+            
+            openFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) {
+                    startChoiceModal.style.display = 'flex'; // Show start modal again if user cancels
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const state = JSON.parse(e.target.result);
+                        restoreState(state);
+                        mindmapName = state.mindmapName || 'Importerad Karta';
+                        mindmapTitle.textContent = mindmapName;
+                        updateBackgroundColor(state.bgColor || '#f0f4f8');
+                        historyStack = [];
+                        historyIndex = -1;
+                        saveState();
+
+                    } catch(err) {
+                        showModal({ title: 'Fel vid inläsning', message: 'Kunde inte läsa filen. Se till att det är en giltig tankekarts-fil (.mindmap eller .json).', buttons: [{ text: 'OK', value: true, class: 'py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600' }] });
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = ''; // Reset for next open
+            });
+
+            // --- Initial load ---
             setupTitleEditing();
         });
     </script>
