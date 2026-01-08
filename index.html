@@ -75,7 +75,24 @@
             border-radius: 4px;
             display: block;
         }
-        .remove-image-btn {
+        /* Video Styles */
+        .node-video-container {
+            position: relative;
+            max-width: 200px;
+            margin-bottom: 5px;
+        }
+        .node-video {
+            max-width: 100%;
+            max-height: 120px;
+            border-radius: 4px;
+            display: block;
+            background: #000;
+        }
+        .node-video-container:hover .remove-video-btn {
+            opacity: 1;
+        }
+
+        .remove-image-btn, .remove-video-btn {
             position: absolute;
             top: -5px;
             right: -5px;
@@ -101,13 +118,13 @@
             margin-top: 5px;
             position: relative;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
             background: rgba(255, 255, 255, 0.6);
             padding: 4px 8px;
             border-radius: 4px;
             border: 1px solid rgba(0,0,0,0.1);
-            max-width: 140px;
+            max-width: 160px;
         }
         .node-attachment-container:hover .remove-attachment-btn {
             opacity: 1;
@@ -123,10 +140,26 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            max-width: 100%;
         }
         .node-attachment-link:hover {
             text-decoration: underline;
         }
+        .read-file-btn {
+            margin-top: 4px;
+            background-color: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            width: 100%;
+        }
+        .read-file-btn:hover {
+            background-color: #3182ce;
+        }
+
         .remove-attachment-btn {
             position: absolute;
             top: -6px;
@@ -266,6 +299,7 @@
 </head>
 <body class="w-screen h-screen m-0 p-0 overflow-hidden">
 
+    <!-- Start Choice Modal -->
     <div id="start-choice-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-50 flex items-center justify-center">
         <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md text-center">
             <h2 class="text-2xl font-bold mb-4">Välkommen till Tankekarta</h2>
@@ -285,6 +319,7 @@
 
     <div id="mindmap-container" class="w-full h-full"></div>
     
+    <!-- Modal för att namnge tankekartan -->
     <div id="name-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
             <h2 class="text-2xl font-bold mb-4">Starta en ny tankekarta</h2>
@@ -294,6 +329,7 @@
         </div>
     </div>
 
+    <!-- Generic Modal för bekräftelser och meddelanden -->
     <div id="generic-modal" class="fixed inset-0 bg-gray-900 bg-opacity-60 z-[100] flex items-center justify-center hidden transition-opacity duration-300">
         <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md transform scale-95 transition-transform duration-300">
             <h2 id="generic-modal-title" class="text-xl font-bold mb-4">Title</h2>
@@ -302,14 +338,32 @@
                  <input type="text" id="generic-modal-input" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="">
             </div>
             <div id="generic-modal-buttons" class="flex justify-end gap-4 mt-6">
-                 </div>
+                 <!-- Buttons will be added here by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal för att läsa textfiler -->
+    <div id="text-view-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[110] flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col m-4">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h2 id="text-view-title" class="text-xl font-bold text-gray-800">Filnamn</h2>
+                <button id="close-text-view-btn" class="text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="flex-1 p-4 overflow-auto bg-gray-50">
+                <pre id="text-view-content" class="whitespace-pre-wrap font-mono text-sm text-gray-700"></pre>
+            </div>
         </div>
     </div>
 
 
+    <!-- Visning av titel -->
     <h1 id="mindmap-title" class="fixed bottom-4 left-4 z-20 text-xl font-semibold text-gray-500 p-2 rounded-lg cursor-pointer hover:bg-white/50 transition-colors"></h1>
 
 
+    <!-- Kontrollpanel -->
     <div id="controls" class="fixed top-4 left-4 z-30 bg-white/80 backdrop-blur-sm p-2 rounded-xl shadow-lg flex items-center flex-wrap gap-2 border border-gray-200">
         <div class="flex items-center bg-gray-100 rounded-lg p-1">
             <button id="new-btn" class="p-2 rounded-md hover:bg-gray-200" title="Ny tankekarta">
@@ -350,7 +404,7 @@
         <button id="add-image-btn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold p-2 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center h-10 w-10" title="Ladda upp bild">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
         </button>
-        <button id="add-attachment-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold p-2 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center h-10 w-10" title="Bifoga dokument/Länk">
+        <button id="add-attachment-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold p-2 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center h-10 w-10" title="Bifoga dokument/video/länk">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
         </button>
 
@@ -368,6 +422,7 @@
         </button>
     </div>
     
+    <!-- Text Editor -->
     <div id="text-editor" class="fixed z-50 bg-white rounded-lg shadow-xl p-2 flex items-center space-x-1 border border-gray-300 hidden">
         <button class="editor-btn" data-command="selectAll" title="Markera allt">
              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v2M5 9v2M5 15v2M5 21v-2M9 3h2M13 3h2M17 3h2M21 3v2M21 7v2M21 13v2M21 17v2M9 21h2M13 21h2M17 21h2"/></svg>
@@ -416,6 +471,12 @@
             const startChoiceModal = document.getElementById('start-choice-modal');
             const newChoiceBtn = document.getElementById('new-choice-btn');
             const uploadChoiceBtn = document.getElementById('upload-choice-btn');
+            
+            // Text view modal elements
+            const textViewModal = document.getElementById('text-view-modal');
+            const textViewTitle = document.getElementById('text-view-title');
+            const textViewContent = document.getElementById('text-view-content');
+            const closeTextViewBtn = document.getElementById('close-text-view-btn');
 
             // State variables
             let nodes = {};
@@ -489,6 +550,21 @@
                 genericModal.querySelector('div').classList.remove('scale-100');
                 setTimeout(() => genericModal.classList.add('hidden'), 300);
             }
+            
+            // Text View Modal Logic
+            function openTextView(name, content) {
+                textViewTitle.textContent = name;
+                textViewContent.textContent = content;
+                textViewModal.classList.remove('hidden');
+            }
+            
+            closeTextViewBtn.addEventListener('click', () => {
+                textViewModal.classList.add('hidden');
+            });
+            
+            textViewModal.addEventListener('click', (e) => {
+                if (e.target === textViewModal) textViewModal.classList.add('hidden');
+            });
 
             // --- Core Mindmap Logic ---
             new PlainDraggable(controls, { handle: controls });
@@ -550,7 +626,15 @@
                 applyNodeStyle(node);
 
                 nodeEl.addEventListener('click', (e) => {
-                    if (e.target.tagName === 'A' || e.target.closest('.remove-image-btn') || e.target.closest('.remove-attachment-btn')) return;
+                    if (
+                        e.target.tagName === 'A' || 
+                        e.target.tagName === 'BUTTON' ||
+                        e.target.tagName === 'VIDEO' ||
+                        e.target.closest('.remove-image-btn') || 
+                        e.target.closest('.remove-attachment-btn') ||
+                        e.target.closest('.remove-video-btn') ||
+                        e.target.closest('.read-file-btn')
+                    ) return;
                     e.stopPropagation();
                     if (isLinkingMode) {
                         handleLinkClick(id);
@@ -581,6 +665,7 @@
             
             function updateNodeVisuals(node) {
                 node.contentEl.innerHTML = '';
+                
                 // 1. Image
                 if (node.imgSrc) {
                     const imgContainer = document.createElement('div');
@@ -604,51 +689,105 @@
                     node.contentEl.appendChild(imgContainer);
                 }
                 
-                // 2. Text
+                // 2. Text Content
                 node.contentEl.appendChild(node.textContentEl);
 
-                // 3. Attachment
+                // 3. Attachments (File, Link, Video)
                 if (node.fileAttachment) {
-                    const attachContainer = document.createElement('div');
-                    attachContainer.className = 'node-attachment-container';
                     
-                    const link = document.createElement('a');
-                    link.className = 'node-attachment-link';
-                    
-                    let iconSvg = '';
-                    if (node.fileAttachment.type === 'link') {
-                        link.href = node.fileAttachment.url;
-                        link.target = '_blank';
-                        link.title = node.fileAttachment.url;
-                        iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>';
-                        link.innerHTML = `${iconSvg} <span>Länk</span>`;
-                    } else {
-                        link.href = node.fileAttachment.data;
-                        link.download = node.fileAttachment.name;
-                        link.title = node.fileAttachment.name;
-                        iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
-                        link.innerHTML = `${iconSvg} <span>${node.fileAttachment.name}</span>`;
-                    }
-                    
-                    // Use a click listener to prevent drag initiation when clicking the link
-                    link.addEventListener('mousedown', e => e.stopPropagation());
-                    
-                    attachContainer.appendChild(link);
+                    // Special handling for Video
+                    if (node.fileAttachment.type === 'video') {
+                        const vidContainer = document.createElement('div');
+                        vidContainer.className = 'node-video-container';
+                        
+                        const video = document.createElement('video');
+                        video.src = node.fileAttachment.data;
+                        video.controls = true;
+                        video.className = 'node-video';
+                        // Prevent drag when interacting with video controls
+                        video.addEventListener('mousedown', e => e.stopPropagation());
+                        
+                        vidContainer.appendChild(video);
+                        
+                        const removeBtn = document.createElement('button');
+                        removeBtn.innerHTML = '&times;';
+                        removeBtn.className = 'remove-video-btn';
+                        removeBtn.title = 'Ta bort video';
+                        removeBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            node.fileAttachment = null;
+                            updateNodeVisuals(node);
+                            Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
+                            saveState();
+                        };
+                        vidContainer.appendChild(removeBtn);
+                        node.contentEl.appendChild(vidContainer);
+                    } 
+                    // Handling for Links and Files (including Text files)
+                    else {
+                        const attachContainer = document.createElement('div');
+                        attachContainer.className = 'node-attachment-container';
+                        
+                        const link = document.createElement('a');
+                        link.className = 'node-attachment-link';
+                        
+                        let iconSvg = '';
+                        if (node.fileAttachment.type === 'link') {
+                            link.href = node.fileAttachment.url;
+                            link.target = '_blank';
+                            link.title = node.fileAttachment.url;
+                            iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>';
+                            link.innerHTML = `${iconSvg} <span>Länk</span>`;
+                        } else {
+                            // Generic file or Text file
+                            link.href = node.fileAttachment.data;
+                            if (node.fileAttachment.type !== 'text') {
+                                link.download = node.fileAttachment.name;
+                            }
+                            link.title = node.fileAttachment.name;
+                            iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+                            link.innerHTML = `${iconSvg} <span>${node.fileAttachment.name}</span>`;
+                        }
+                        
+                        // Use a click listener to prevent drag initiation when clicking the link
+                        link.addEventListener('mousedown', e => e.stopPropagation());
+                        attachContainer.appendChild(link);
+                        
+                        // Add "Read" button if it is a text file
+                        if (node.fileAttachment.type === 'text') {
+                            const readBtn = document.createElement('button');
+                            readBtn.className = 'read-file-btn';
+                            readBtn.textContent = 'Läs fil';
+                            readBtn.onclick = (e) => {
+                                e.stopPropagation();
+                                e.preventDefault(); // Prevent downloading
+                                openTextView(node.fileAttachment.name, node.fileAttachment.textContent);
+                            };
+                            readBtn.addEventListener('mousedown', e => e.stopPropagation());
+                            attachContainer.appendChild(readBtn);
+                            
+                            // Prevent the main link from downloading if clicked directly (optional, but good UX)
+                            link.onclick = (e) => {
+                                e.preventDefault();
+                                openTextView(node.fileAttachment.name, node.fileAttachment.textContent);
+                            };
+                        }
 
-                    const removeBtn = document.createElement('button');
-                    removeBtn.innerHTML = '&times;';
-                    removeBtn.className = 'remove-attachment-btn';
-                    removeBtn.title = 'Ta bort bilaga';
-                    removeBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        node.fileAttachment = null;
-                        updateNodeVisuals(node);
-                        Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
-                        saveState();
-                    };
-                    attachContainer.appendChild(removeBtn);
-                    
-                    node.contentEl.appendChild(attachContainer);
+                        const removeBtn = document.createElement('button');
+                        removeBtn.innerHTML = '&times;';
+                        removeBtn.className = 'remove-attachment-btn';
+                        removeBtn.title = 'Ta bort bilaga';
+                        removeBtn.onclick = (e) => {
+                            e.stopPropagation();
+                            node.fileAttachment = null;
+                            updateNodeVisuals(node);
+                            Object.values(lines).forEach(line => { try { line.position(); } catch(e){} });
+                            saveState();
+                        };
+                        attachContainer.appendChild(removeBtn);
+                        
+                        node.contentEl.appendChild(attachContainer);
+                    }
                 }
             }
 
@@ -939,11 +1078,11 @@
                 if (!selectedNodeId) return;
                 
                 const choice = await showModal({
-                    title: 'Bifoga dokument',
-                    message: 'Vill du ladda upp en fil från datorn eller länka till en webbsida?',
+                    title: 'Bifoga',
+                    message: 'Vad vill du bifoga till noden?',
                     buttons: [
                         { text: 'Länk (URL)', value: 'link', class: 'py-2 px-4 bg-teal-500 text-white rounded-lg hover:bg-teal-600' },
-                        { text: 'Ladda upp fil', value: 'upload', class: 'py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600' },
+                        { text: 'Ladda upp fil/film', value: 'upload', class: 'py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600' },
                         { text: 'Avbryt', value: null, class: 'py-2 px-4 bg-gray-200 rounded-lg hover:bg-gray-300' }
                     ]
                 });
@@ -976,19 +1115,63 @@
             docUploadInput.addEventListener('change', (event) => {
                 if (!selectedNodeId || !event.target.files || !event.target.files[0]) return;
                 const file = event.target.files[0];
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const node = nodes[selectedNodeId];
-                    node.fileAttachment = { 
-                        type: 'file', 
-                        data: e.target.result, 
-                        name: file.name 
+                const fileName = file.name;
+                const fileType = file.type;
+                
+                // Determine logic based on file type
+                let type = 'file'; // Default
+                let isText = false;
+
+                if (fileType.startsWith('video/')) {
+                    type = 'video';
+                } else if (
+                    fileType.startsWith('text/') || 
+                    fileName.endsWith('.txt') || 
+                    fileName.endsWith('.md') || 
+                    fileName.endsWith('.json') || 
+                    fileName.endsWith('.csv') ||
+                    fileName.endsWith('.js') ||
+                    fileName.endsWith('.html') ||
+                    fileName.endsWith('.css')
+                ) {
+                    type = 'text';
+                    isText = true;
+                }
+
+                if (isText) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const content = e.target.result;
+                        const dataUrl = "data:text/plain;charset=utf-8," + encodeURIComponent(content);
+                        const node = nodes[selectedNodeId];
+                        node.fileAttachment = { 
+                            type: 'text', 
+                            data: dataUrl, 
+                            name: fileName,
+                            textContent: content 
+                        };
+                        updateNodeVisuals(node);
+                        redrawAllLines();
+                        saveState();
                     };
-                    updateNodeVisuals(node);
-                    redrawAllLines();
-                    saveState();
-                };
-                reader.readAsDataURL(file);
+                    reader.readAsText(file);
+                } else {
+                    // Binary files (Video, PDF, Zip etc) - Read as Data URL
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const node = nodes[selectedNodeId];
+                        node.fileAttachment = { 
+                            type: type, 
+                            data: e.target.result, 
+                            name: fileName 
+                        };
+                        updateNodeVisuals(node);
+                        redrawAllLines();
+                        saveState();
+                    };
+                    reader.readAsDataURL(file);
+                }
+                
                 event.target.value = '';
             });
             // --- Attachment Logic Ends ---
