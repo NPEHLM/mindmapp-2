@@ -343,17 +343,17 @@
         </div>
     </div>
 
-    <!-- Modal för att läsa textfiler -->
+    <!-- Modal för att läsa filer (Enbart textfiler) -->
     <div id="text-view-modal" class="fixed inset-0 bg-gray-900 bg-opacity-70 z-[110] flex items-center justify-center hidden">
-        <div class="bg-white rounded-lg shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col m-4">
+        <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col m-4">
             <div class="flex justify-between items-center p-4 border-b">
                 <h2 id="text-view-title" class="text-xl font-bold text-gray-800">Filnamn</h2>
                 <button id="close-text-view-btn" class="text-gray-500 hover:text-gray-700">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
-            <div class="flex-1 p-4 overflow-auto bg-gray-50">
-                <pre id="text-view-content" class="whitespace-pre-wrap font-mono text-sm text-gray-700"></pre>
+            <div class="flex-1 p-4 overflow-hidden bg-gray-50 flex flex-col relative">
+                <pre id="text-view-content" class="whitespace-pre-wrap font-mono text-sm text-gray-700 overflow-auto w-full h-full hidden"></pre>
             </div>
         </div>
     </div>
@@ -551,11 +551,18 @@
                 setTimeout(() => genericModal.classList.add('hidden'), 300);
             }
             
-            // Text View Modal Logic
-            function openTextView(name, content) {
-                textViewTitle.textContent = name;
-                textViewContent.textContent = content;
+            // Text/File View Modal Logic
+            function openFileView(attachment) {
+                textViewTitle.textContent = attachment.name;
                 textViewModal.classList.remove('hidden');
+
+                textViewContent.classList.add('hidden');
+                
+                if (attachment.textContent) {
+                    // Visa text
+                    textViewContent.textContent = attachment.textContent;
+                    textViewContent.classList.remove('hidden');
+                }
             }
             
             closeTextViewBtn.addEventListener('click', () => {
@@ -563,7 +570,9 @@
             });
             
             textViewModal.addEventListener('click', (e) => {
-                if (e.target === textViewModal) textViewModal.classList.add('hidden');
+                if (e.target === textViewModal) {
+                    textViewModal.classList.add('hidden');
+                }
             });
 
             // --- Core Mindmap Logic ---
@@ -723,7 +732,7 @@
                         vidContainer.appendChild(removeBtn);
                         node.contentEl.appendChild(vidContainer);
                     } 
-                    // Handling for Links and Files (including Text files)
+                    // Handling for Links and Files (including Text files & PDF)
                     else {
                         const attachContainer = document.createElement('div');
                         attachContainer.className = 'node-attachment-container';
@@ -739,11 +748,14 @@
                             iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg>';
                             link.innerHTML = `${iconSvg} <span>Länk</span>`;
                         } else {
-                            // Generic file or Text file
+                            // Generic file, Text file or PDF
                             link.href = node.fileAttachment.data;
+                            // Only set download if it's NOT viewed internally
+                            // But we provide direct download via link always as backup
                             if (node.fileAttachment.type !== 'text') {
                                 link.download = node.fileAttachment.name;
                             }
+                            
                             link.title = node.fileAttachment.name;
                             iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
                             link.innerHTML = `${iconSvg} <span>${node.fileAttachment.name}</span>`;
@@ -753,23 +765,24 @@
                         link.addEventListener('mousedown', e => e.stopPropagation());
                         attachContainer.appendChild(link);
                         
-                        // Add "Read" button if it is a text file
+                        // Add "View/Read" button for TEXT files only
                         if (node.fileAttachment.type === 'text') {
                             const readBtn = document.createElement('button');
                             readBtn.className = 'read-file-btn';
-                            readBtn.textContent = 'Läs fil';
+                            readBtn.textContent = 'Läs text';
+
                             readBtn.onclick = (e) => {
                                 e.stopPropagation();
-                                e.preventDefault(); // Prevent downloading
-                                openTextView(node.fileAttachment.name, node.fileAttachment.textContent);
+                                e.preventDefault();
+                                openFileView(node.fileAttachment);
                             };
                             readBtn.addEventListener('mousedown', e => e.stopPropagation());
                             attachContainer.appendChild(readBtn);
                             
-                            // Prevent the main link from downloading if clicked directly (optional, but good UX)
+                            // Prevent the main link from downloading if clicked directly
                             link.onclick = (e) => {
-                                e.preventDefault();
-                                openTextView(node.fileAttachment.name, node.fileAttachment.textContent);
+                                 e.preventDefault();
+                                 openFileView(node.fileAttachment);
                             };
                         }
 
@@ -1116,62 +1129,47 @@
                 if (!selectedNodeId || !event.target.files || !event.target.files[0]) return;
                 const file = event.target.files[0];
                 const fileName = file.name;
-                const fileType = file.type;
+                const fileType = file.type; // MIME
                 
-                // Determine logic based on file type
-                let type = 'file'; // Default
-                let isText = false;
+                // Lista på text-ändelser
+                const textExtensions = ['.txt', '.md', '.json', '.csv', '.js', '.html', '.css', '.py', '.java', '.c', '.cpp', '.h', '.xml', '.log', '.ini', '.yml', '.yaml', '.ts', '.jsx', '.tsx'];
+                const isText = fileType.startsWith('text/') || textExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
 
-                if (fileType.startsWith('video/')) {
-                    type = 'video';
-                } else if (
-                    fileType.startsWith('text/') || 
-                    fileName.endsWith('.txt') || 
-                    fileName.endsWith('.md') || 
-                    fileName.endsWith('.json') || 
-                    fileName.endsWith('.csv') ||
-                    fileName.endsWith('.js') ||
-                    fileName.endsWith('.html') ||
-                    fileName.endsWith('.css')
-                ) {
-                    type = 'text';
-                    isText = true;
-                }
+                // Läs alltid som DataURL för lagring/nedladdning/embed
+                const readerData = new FileReader();
+                readerData.onload = (e) => {
+                    const dataResult = e.target.result;
+                    
+                    // Determine internal type
+                    let internalType = 'generic';
+                    if (fileType.startsWith('video/')) internalType = 'video';
+                    else if (isText) internalType = 'text';
+                    // PDF faller nu under 'generic'
 
-                if (isText) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const content = e.target.result;
-                        const dataUrl = "data:text/plain;charset=utf-8," + encodeURIComponent(content);
-                        const node = nodes[selectedNodeId];
-                        node.fileAttachment = { 
-                            type: 'text', 
-                            data: dataUrl, 
-                            name: fileName,
-                            textContent: content 
-                        };
-                        updateNodeVisuals(node);
-                        redrawAllLines();
-                        saveState();
+                    const node = nodes[selectedNodeId];
+                    node.fileAttachment = { 
+                        type: internalType,
+                        mime: fileType,
+                        data: dataResult, 
+                        name: fileName
                     };
-                    reader.readAsText(file);
-                } else {
-                    // Binary files (Video, PDF, Zip etc) - Read as Data URL
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const node = nodes[selectedNodeId];
-                        node.fileAttachment = { 
-                            type: type, 
-                            data: e.target.result, 
-                            name: fileName 
+
+                    // Om det är text, läs även innehållet för bättre visning
+                    if (isText) {
+                        const readerText = new FileReader();
+                        readerText.onload = (evt) => {
+                            node.fileAttachment.textContent = evt.target.result;
+                            updateNodeVisuals(node);
+                            saveState();
                         };
+                        readerText.readAsText(file);
+                    } else {
                         updateNodeVisuals(node);
-                        redrawAllLines();
                         saveState();
-                    };
-                    reader.readAsDataURL(file);
-                }
-                
+                    }
+                    redrawAllLines();
+                };
+                readerData.readAsDataURL(file);
                 event.target.value = '';
             });
             // --- Attachment Logic Ends ---
